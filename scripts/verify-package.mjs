@@ -13,6 +13,7 @@ const packagePath = path.join(
 );
 const approvedDirectories = new Set([
   'background',
+  'shared',
   'popup',
   'options',
   'assets',

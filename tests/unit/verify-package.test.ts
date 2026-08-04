@@ -14,12 +14,14 @@ describe('listPackageEntries', () => {
       listPackageEntries([
         'manifest.json',
         'background/service-worker.js',
+        'shared/settings.js',
         'options/index.html',
         'icons/icon-128.png',
       ]),
     ).toEqual([
       'manifest.json',
       'background/service-worker.js',
+      'shared/settings.js',
       'options/index.html',
       'icons/icon-128.png',
     ]);

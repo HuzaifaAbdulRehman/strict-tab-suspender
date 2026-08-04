@@ -172,8 +172,9 @@ it.each([
 });
 
 it('rejects a placeholder longer than 65,536 characters', () => {
-  expect(buildSuspendedPageUrl(`https://example.test/${'a'.repeat(70_000)}`, extensionPage))
-    .toBeUndefined();
+  expect(
+    buildSuspendedPageUrl(`https://example.test/${'a'.repeat(70_000)}`, extensionPage),
+  ).toBeUndefined();
 });
 ```
 
@@ -192,8 +193,12 @@ export const MAX_SUSPENDED_URL_LENGTH = 65_536;
 function validatedHttpUrl(value: string): URL | undefined {
   try {
     const parsed = new URL(value);
-    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
-        parsed.username !== '' || parsed.password !== '') return undefined;
+    if (
+      (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
+      parsed.username !== '' ||
+      parsed.password !== ''
+    )
+      return undefined;
     return parsed;
   } catch {
     return undefined;
@@ -241,10 +246,14 @@ git commit -m "feat: add safe suspended url codec"
 ```ts
 it('notifies readiness and never restores during load', async () => {
   const replacements: string[] = [];
-  const controller = createSuspendedController(view, {
-    hash: validHash,
-    replace: (url) => replacements.push(url),
-  }, async () => undefined);
+  const controller = createSuspendedController(
+    view,
+    {
+      hash: validHash,
+      replace: (url) => replacements.push(url),
+    },
+    async () => undefined,
+  );
 
   await controller.load();
   expect(replacements).toEqual([]);
@@ -312,8 +321,9 @@ git commit -m "feat: add explicit restore page"
 
 ```ts
 it('parks an inactive http tab at the packaged page', async () => {
-  await expect(coordinator.park(tab(7, { url: 'https://example.test/a' })))
-    .resolves.toBe('discarded');
+  await expect(coordinator.park(tab(7, { url: 'https://example.test/a' }))).resolves.toBe(
+    'discarded',
+  );
   expect(calls[0]).toMatch(/^update:7:chrome-extension:\/\/id\/suspended\/index.html#/u);
 });
 
@@ -342,7 +352,10 @@ Expected: FAIL because the coordinator and strategy-aware eligibility do not exi
 - [ ] **Step 3: Implement the coordinator with an in-memory pending map**
 
 ```ts
-interface PendingParking { originalUrl: string; cancelled: boolean }
+interface PendingParking {
+  originalUrl: string;
+  cancelled: boolean;
+}
 const pending = new Map<number, PendingParking>();
 ```
 
@@ -448,17 +461,16 @@ git commit -m "feat: route sweeps by restore behavior"
 
 ```ts
 it('reports optional permission and current-tab protection state', async () => {
-  await expect(handleExtensionMessage({ type: 'getPopupState' }, deps, sender))
-    .resolves.toMatchObject({
-      tabsPermissionGranted: true,
-      currentTabProtection: { supported: true, protected: false },
-    });
+  await expect(
+    handleExtensionMessage({ type: 'getPopupState' }, deps, sender),
+  ).resolves.toMatchObject({
+    tabsPermissionGranted: true,
+    currentTabProtection: { supported: true, protected: false },
+  });
 });
 
 it('protects only the freshly queried active tab', async () => {
-  await handleExtensionMessage(
-    { type: 'setCurrentTabProtection', protected: true }, deps, sender,
-  );
+  await handleExtensionMessage({ type: 'setCurrentTabProtection', protected: true }, deps, sender);
   expect(calls).toContainEqual(['update', 9, { autoDiscardable: false }]);
 });
 ```
@@ -641,10 +653,12 @@ expect(manifest.permissions).toEqual(['alarms', 'storage']);
 expect(manifest.optional_permissions).toEqual(['tabs']);
 expect(manifest.host_permissions).toBeUndefined();
 
-expect(() => validatePackageManifest({
-  ...approvedManifest,
-  optional_permissions: ['tabs', 'history'],
-})).toThrow('Package optional permissions must be exactly tabs.');
+expect(() =>
+  validatePackageManifest({
+    ...approvedManifest,
+    optional_permissions: ['tabs', 'history'],
+  }),
+).toThrow('Package optional permissions must be exactly tabs.');
 ```
 
 - [ ] **Step 2: Run boundary tests and verify red state**
@@ -871,4 +885,3 @@ Expected: GitHub receives the tested feature branch. Do not merge to `main`, cre
 - [ ] Popup/options/suspended UI never render browsing metadata.
 - [ ] Full automated verification passes on the final commit.
 - [ ] Only the verified feature branch is pushed before owner-profile acceptance.
-

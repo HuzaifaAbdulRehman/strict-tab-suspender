@@ -170,7 +170,7 @@ The popup queries the current active tab and reads only its ID and `autoDiscarda
 
 ```ts
 chrome.tabs.update(tabId, { autoDiscardable: false }); // Protect
-chrome.tabs.update(tabId, { autoDiscardable: true });  // Allow suspension
+chrome.tabs.update(tabId, { autoDiscardable: true }); // Allow suspension
 ```
 
 No new permission is needed for this operation. The eligibility engine continues to return `not-auto-discardable` for protected tabs. Both automatic and manual sweeps must honor the flag during candidate selection and final revalidation.

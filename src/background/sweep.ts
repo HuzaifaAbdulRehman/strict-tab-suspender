@@ -11,9 +11,13 @@ export type SweepTrigger = 'alarm' | 'manual';
 export type DiscardOutcome = 'discarded' | 'skipped' | 'failed';
 
 export interface TabsAdapter {
-  query(): Promise<TabSnapshot[]>;
+  query(queryInfo?: { active?: boolean; lastFocusedWindow?: boolean }): Promise<TabSnapshot[]>;
   get(tabId: number): Promise<TabSnapshot>;
   discard(tabId: number): Promise<TabSnapshot | undefined>;
+  update(
+    tabId: number,
+    update: { url?: string; autoDiscardable?: boolean },
+  ): Promise<TabSnapshot>;
 }
 
 export interface SweepDependencies {

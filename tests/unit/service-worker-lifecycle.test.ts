@@ -20,7 +20,14 @@ describe('service-worker durable startup grace', () => {
       storage: {
         local: {
           async get() {
-            return { settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } };
+            return {
+              settings: {
+                schemaVersion: 2,
+                enabled: true,
+                idleMinutes: 15,
+                restoreBehavior: 'native',
+              },
+            };
           },
           async set() {},
         },
@@ -59,8 +66,14 @@ describe('service-worker durable startup grace', () => {
           calls.push('discard');
           return { id: 1 };
         },
+        async update(id: number, update: Record<string, unknown>) {
+          return { id, ...update };
+        },
+        onActivated: { addListener() {} },
       },
+      permissions: { async contains() { return false; } },
       runtime: {
+        getURL: (path: string) => `chrome-extension://id/${path}`,
         onInstalled: { addListener() {} },
         onStartup: { addListener() {} },
       },

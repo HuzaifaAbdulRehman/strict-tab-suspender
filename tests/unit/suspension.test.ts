@@ -79,6 +79,7 @@ describe('click suspension coordinator', () => {
         async update(id, update) {
           calls.push(`update:${id}:${update.url}`);
           if (update.url === original) return tab(id, { active: true, url: original });
+          if (update.url === undefined) throw new Error('missing test URL');
           parkedUrl = update.url;
           markUpdateStarted();
           return updateResult;

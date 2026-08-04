@@ -8,6 +8,7 @@ import {
 import { STARTUP_GRACE_MS, runSweep, type SweepDependencies, type TabsAdapter } from './sweep.js';
 import type { TabSnapshot } from './eligibility.js';
 import type { ExtensionRequest, ExtensionResponse } from '../shared/messages.js';
+import { createParkingCoordinator } from './suspension.js';
 
 export const ALARM_NAME = 'strict-tab-discarder-sweep';
 export const ALARM_PERIOD_MINUTES = 1;
@@ -20,6 +21,13 @@ export interface AlarmsAdapter {
 
 export interface ServiceWorkerDependencies extends SweepDependencies {
   alarms: AlarmsAdapter;
+  handleActivated(tabId: number): Promise<void>;
+  handlePageReady(tabId: number, senderUrl: string): Promise<void>;
+}
+
+export interface ExtensionSender {
+  tab?: { id?: number };
+  url?: string;
 }
 
 export interface ServiceWorkerController {
@@ -72,13 +80,22 @@ function isSweepSummary(value: unknown): value is SweepSummary {
 export async function handleExtensionMessage(
   message: ExtensionRequest,
   dependencies: ServiceWorkerDependencies,
+  sender: ExtensionSender = {},
 ): Promise<ExtensionResponse> {
   if (message.type === 'getPopupState') {
     const stored = await dependencies.storage.get();
     const summary = stored.latestSweepSummary;
+    const activeTabs = await dependencies.tabs.query({ active: true, lastFocusedWindow: true });
+    const currentTab = activeTabs[0];
+    const supported = currentTab?.id !== undefined && typeof currentTab.autoDiscardable === 'boolean';
     return {
       settings: await getSettings(dependencies.storage),
       ...(isSweepSummary(summary) ? { summary } : {}),
+      tabsPermissionGranted: await dependencies.hasTabsPermission(),
+      currentTabProtection: {
+        supported,
+        protected: supported && currentTab.autoDiscardable === false,
+      },
     };
   }
   if (message.type === 'manualSweep') return { summary: await runSweep('manual', dependencies) };
@@ -94,6 +111,48 @@ export async function handleExtensionMessage(
     const settings = await saveSettings({ idleMinutes: message.idleMinutes }, dependencies.storage);
     await ensureSweepAlarm(dependencies);
     return { settings };
+  }
+  if (message.type === 'setRestoreBehavior') {
+    if (message.restoreBehavior === 'click' && !(await dependencies.hasTabsPermission())) {
+      return {
+        settings: await getSettings(dependencies.storage),
+        tabsPermissionGranted: false,
+        actionError: 'tabs-permission-required',
+      };
+    }
+    const settings = await saveSettings(
+      { restoreBehavior: message.restoreBehavior },
+      dependencies.storage,
+    );
+    return {
+      settings,
+      tabsPermissionGranted: await dependencies.hasTabsPermission(),
+    };
+  }
+  if (message.type === 'setCurrentTabProtection') {
+    const activeTabs = await dependencies.tabs.query({ active: true, lastFocusedWindow: true });
+    const currentTab = activeTabs[0];
+    if (currentTab?.id === undefined || typeof currentTab.autoDiscardable !== 'boolean') {
+      return {
+        currentTabProtection: { supported: false, protected: false },
+        actionError: 'unsupported-tab',
+      };
+    }
+    const updated = await dependencies.tabs.update(currentTab.id, {
+      autoDiscardable: !message.protected,
+    });
+    return {
+      currentTabProtection: {
+        supported: typeof updated.autoDiscardable === 'boolean',
+        protected: updated.autoDiscardable === false,
+      },
+    };
+  }
+  if (message.type === 'suspensionPageReady') {
+    if (sender.tab?.id !== undefined && sender.url !== undefined) {
+      await dependencies.handlePageReady(sender.tab.id, sender.url);
+    }
+    return {};
   }
   const settings = await resetSettings(dependencies.storage);
   await ensureSweepAlarm(dependencies);
@@ -134,6 +193,10 @@ function isExtensionRequest(value: unknown): value is ExtensionRequest {
     candidate.type === 'pauseAutomation' ||
     candidate.type === 'resumeAutomation' ||
     candidate.type === 'resetSettings' ||
+    candidate.type === 'suspensionPageReady' ||
+    (candidate.type === 'setRestoreBehavior' &&
+      (candidate.restoreBehavior === 'native' || candidate.restoreBehavior === 'click')) ||
+    (candidate.type === 'setCurrentTabProtection' && typeof candidate.protected === 'boolean') ||
     (candidate.type === 'saveSettings' &&
       (candidate.idleMinutes === 15 ||
         candidate.idleMinutes === 30 ||
@@ -154,17 +217,26 @@ export interface ExtensionChrome {
     onAlarm?: ChromeEvents<(alarm: { name: string }) => void>;
   };
   tabs?: {
-    query(queryInfo: Record<string, never>): Promise<TabSnapshot[]>;
+    query(queryInfo: { active?: boolean; lastFocusedWindow?: boolean }): Promise<TabSnapshot[]>;
     get(tabId: number): Promise<TabSnapshot>;
     discard(tabId: number): Promise<TabSnapshot | undefined>;
+    update(
+      tabId: number,
+      update: { url?: string; autoDiscardable?: boolean },
+    ): Promise<TabSnapshot>;
+    onActivated?: ChromeEvents<(activeInfo: { tabId: number }) => void>;
+  };
+  permissions?: {
+    contains(permissions: { permissions: string[] }): Promise<boolean>;
   };
   runtime?: {
+    getURL(path: string): string;
     onInstalled?: ChromeEvents<() => void>;
     onStartup?: ChromeEvents<() => void>;
     onMessage?: ChromeEvents<
       (
         message: unknown,
-        sender: unknown,
+        sender: ExtensionSender,
         sendResponse: (response: ExtensionResponse) => void,
       ) => boolean | void
     >;
@@ -184,15 +256,23 @@ function browserDependencies(browser: ExtensionChrome): ServiceWorkerDependencie
     throw new Error('Chrome extension APIs are unavailable');
   }
   const tabs: TabsAdapter = {
-    query: () => browser.tabs!.query({}),
+    query: (queryInfo = {}) => browser.tabs!.query(queryInfo),
     get: (tabId) => browser.tabs!.get(tabId),
     discard: (tabId) => browser.tabs!.discard(tabId),
+    update: (tabId, update) => browser.tabs!.update(tabId, update),
   };
+  if (browser.runtime === undefined) throw new Error('Chrome runtime API is unavailable');
+  const parking = createParkingCoordinator(tabs, browser.runtime.getURL('suspended/index.html'));
   return {
     alarms: browser.alarms,
     storage: browser.storage.local,
     tabs,
     now: Date.now,
+    hasTabsPermission: () =>
+      browser.permissions?.contains({ permissions: ['tabs'] }) ?? Promise.resolve(false),
+    park: (tab) => parking.park(tab),
+    handleActivated: (tabId) => parking.handleActivated(tabId),
+    handlePageReady: (tabId, senderUrl) => parking.handlePageReady(tabId, senderUrl),
   };
 }
 
@@ -205,9 +285,10 @@ export function registerServiceWorker(browser: ExtensionChrome): ServiceWorkerCo
     (changes, areaName) => void controller.onStorageChanged(changes, areaName),
   );
   browser.alarms?.onAlarm?.addListener((alarm) => void controller.onAlarm(alarm));
-  browser.runtime?.onMessage?.addListener((message, _sender, sendResponse) => {
+  browser.tabs?.onActivated?.addListener(({ tabId }) => void dependencies.handleActivated(tabId));
+  browser.runtime?.onMessage?.addListener((message, sender, sendResponse) => {
     if (!isExtensionRequest(message)) return;
-    void handleExtensionMessage(message, dependencies)
+    void handleExtensionMessage(message, dependencies, sender)
       .then(sendResponse)
       .catch(() => sendResponse({}));
     return true;

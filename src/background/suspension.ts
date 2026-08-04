@@ -4,7 +4,7 @@ import { buildSuspendedPageUrl, isSuspendedPageUrl } from '../shared/suspended-u
 
 export interface ParkingTabsAdapter {
   get(tabId: number): Promise<TabSnapshot>;
-  update(tabId: number, update: { url: string }): Promise<TabSnapshot>;
+  update(tabId: number, update: { url?: string; autoDiscardable?: boolean }): Promise<TabSnapshot>;
   discard(tabId: number): Promise<TabSnapshot | undefined>;
 }
 

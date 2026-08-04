@@ -85,6 +85,10 @@ function dependencies(
         calls.push(`discard:${id}`);
         return tab(id);
       },
+      async update(id, update) {
+        calls.push(`update:${id}`);
+        return tab(id, update.url === undefined ? {} : { url: update.url });
+      },
     },
   };
 }

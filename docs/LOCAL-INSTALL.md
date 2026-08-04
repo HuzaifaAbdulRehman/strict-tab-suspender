@@ -1,6 +1,6 @@
 # Local installation
 
-This foundation has no extension engine or UI yet, so there is no unpacked extension artifact to load. After a future build creates `dist/manifest.json`:
+The build creates a complete unpacked extension in `dist/`:
 
 1. Run `npm ci` and `npm run build`.
 2. Open `chrome://extensions` in Chrome 121+.

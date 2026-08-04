@@ -1,6 +1,13 @@
-import { getSettings, saveSettings, type LocalStorageArea } from '../shared/settings.js';
+import {
+  getSettings,
+  resetSettings,
+  saveSettings,
+  type LocalStorageArea,
+  type SweepSummary,
+} from '../shared/settings.js';
 import { STARTUP_GRACE_MS, runSweep, type SweepDependencies, type TabsAdapter } from './sweep.js';
 import type { TabSnapshot } from './eligibility.js';
+import type { ExtensionRequest, ExtensionResponse } from '../shared/messages.js';
 
 export const ALARM_NAME = 'strict-tab-discarder-sweep';
 export const ALARM_PERIOD_MINUTES = 1;
@@ -54,6 +61,45 @@ export async function resumeAutomation(dependencies: ServiceWorkerDependencies):
   await ensureSweepAlarm(dependencies);
 }
 
+function isSweepSummary(value: unknown): value is SweepSummary {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return ['checkedAt', 'evaluatedCount', 'discardedCount', 'skippedCount', 'failedCount'].every(
+    (key) => typeof candidate[key] === 'number' && Number.isFinite(candidate[key]),
+  );
+}
+
+export async function handleExtensionMessage(
+  message: ExtensionRequest,
+  dependencies: ServiceWorkerDependencies,
+): Promise<ExtensionResponse> {
+  if (message.type === 'getPopupState') {
+    const stored = await dependencies.storage.get();
+    const summary = stored.latestSweepSummary;
+    return {
+      settings: await getSettings(dependencies.storage),
+      ...(isSweepSummary(summary) ? { summary } : {}),
+    };
+  }
+  if (message.type === 'manualSweep') return { summary: await runSweep('manual', dependencies) };
+  if (message.type === 'pauseAutomation') {
+    await pauseAutomation(dependencies);
+    return { settings: await getSettings(dependencies.storage) };
+  }
+  if (message.type === 'resumeAutomation') {
+    await resumeAutomation(dependencies);
+    return { settings: await getSettings(dependencies.storage) };
+  }
+  if (message.type === 'saveSettings') {
+    const settings = await saveSettings({ idleMinutes: message.idleMinutes }, dependencies.storage);
+    await ensureSweepAlarm(dependencies);
+    return { settings };
+  }
+  const settings = await resetSettings(dependencies.storage);
+  await ensureSweepAlarm(dependencies);
+  return { settings };
+}
+
 export function createServiceWorkerController(
   dependencies: ServiceWorkerDependencies,
 ): ServiceWorkerController {
@@ -79,6 +125,23 @@ interface ChromeEvents<T> {
   addListener(listener: T): void;
 }
 
+function isExtensionRequest(value: unknown): value is ExtensionRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.type === 'getPopupState' ||
+    candidate.type === 'manualSweep' ||
+    candidate.type === 'pauseAutomation' ||
+    candidate.type === 'resumeAutomation' ||
+    candidate.type === 'resetSettings' ||
+    (candidate.type === 'saveSettings' &&
+      (candidate.idleMinutes === 15 ||
+        candidate.idleMinutes === 30 ||
+        candidate.idleMinutes === 60 ||
+        candidate.idleMinutes === 120))
+  );
+}
+
 export interface ExtensionChrome {
   storage?: {
     local?: LocalStorageArea;
@@ -98,6 +161,13 @@ export interface ExtensionChrome {
   runtime?: {
     onInstalled?: ChromeEvents<() => void>;
     onStartup?: ChromeEvents<() => void>;
+    onMessage?: ChromeEvents<
+      (
+        message: unknown,
+        sender: unknown,
+        sendResponse: (response: ExtensionResponse) => void,
+      ) => boolean | void
+    >;
   };
 }
 
@@ -135,6 +205,13 @@ export function registerServiceWorker(browser: ExtensionChrome): ServiceWorkerCo
     (changes, areaName) => void controller.onStorageChanged(changes, areaName),
   );
   browser.alarms?.onAlarm?.addListener((alarm) => void controller.onAlarm(alarm));
+  browser.runtime?.onMessage?.addListener((message, _sender, sendResponse) => {
+    if (!isExtensionRequest(message)) return;
+    void handleExtensionMessage(message, dependencies)
+      .then(sendResponse)
+      .catch(() => sendResponse({}));
+    return true;
+  });
   void ensureSweepAlarm(dependencies);
   return controller;
 }

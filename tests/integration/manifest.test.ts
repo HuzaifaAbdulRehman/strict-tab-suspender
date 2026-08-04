@@ -39,4 +39,18 @@ describe('extension manifest', () => {
         "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src 'none'",
     });
   });
+
+  it('declares packaged popup, options, and icon entrypoints without expanding permissions', async () => {
+    const manifest = await readManifest();
+
+    expect(manifest.action).toEqual({ default_popup: 'popup/index.html' });
+    expect(manifest.options_page).toBe('options/index.html');
+    expect(manifest.icons).toEqual({
+      '16': 'icons/icon-16.png',
+      '32': 'icons/icon-32.png',
+      '48': 'icons/icon-48.png',
+      '128': 'icons/icon-128.png',
+    });
+    expect(manifest.permissions).toEqual(['alarms', 'storage']);
+  });
 });

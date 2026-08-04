@@ -11,3 +11,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Repository foundation, privacy documentation, release process, and verification tooling.
 - Manifest V3 service-worker core with local-only settings, guarded eligibility checks, capped serial
   discards, aggregate sweep summaries, and alarm lifecycle management.
+- Popup and options interfaces with local-only controls, aggregate sweep status, protected-tab guidance,
+  privacy/limitations copy, reset confirmation, and packaged product icons.

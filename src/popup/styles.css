@@ -1,0 +1,158 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  color: #14213d;
+  background: #f5f7fb;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  width: 360px;
+  margin: 0;
+}
+.popup-shell {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+.brand,
+.state-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.eyebrow,
+.label {
+  margin: 0;
+  color: #53647e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.card {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+.state {
+  margin: 3px 0 0;
+  color: #0f766e;
+  font-weight: 750;
+}
+.description,
+.reload-note,
+.summary-card p:last-child {
+  margin: 0;
+  color: #364152;
+  font-size: 13px;
+  line-height: 1.45;
+}
+button {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.primary {
+  width: 100%;
+  color: #fff;
+  background: #075985;
+}
+.secondary {
+  padding: 7px 9px;
+  color: #075985;
+  border-color: #7dd3fc;
+  background: #ecfeff;
+  font-size: 12px;
+}
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.status {
+  min-height: 1.3em;
+  margin: -5px 0 0;
+  color: #075985;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.notice {
+  border-left: 4px solid #c2410c;
+  border-radius: 6px;
+  background: #fff7ed;
+  padding: 10px 12px;
+  color: #7c2d12;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.reload-note {
+  padding: 0 2px;
+}
+nav {
+  display: flex;
+  gap: 16px;
+}
+a {
+  color: #075985;
+  font-size: 13px;
+  font-weight: 700;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 3px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #e5edf9;
+    background: #111827;
+  }
+  .card {
+    border-color: #475569;
+    background: #1f2937;
+  }
+  .description,
+  .reload-note,
+  .summary-card p:last-child {
+    color: #cbd5e1;
+  }
+  .eyebrow,
+  .label {
+    color: #a9b8ce;
+  }
+  .state {
+    color: #5eead4;
+  }
+  .secondary {
+    color: #a5f3fc;
+    border-color: #155e75;
+    background: #083344;
+  }
+  .notice {
+    color: #fed7aa;
+    background: #431407;
+  }
+  a,
+  .status {
+    color: #7dd3fc;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

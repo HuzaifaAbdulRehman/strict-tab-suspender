@@ -5,6 +5,7 @@ import {
   ALARM_PERIOD_MINUTES,
   createServiceWorkerController,
   ensureSweepAlarm,
+  handleExtensionMessage,
   pauseAutomation,
   registerServiceWorker,
   resumeAutomation,
@@ -72,6 +73,44 @@ function dependencies(
 }
 
 describe('service worker scheduler', () => {
+  it('serves popup actions through local-only worker APIs and returns aggregate state', async () => {
+    const deps = dependencies();
+
+    await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toEqual({
+      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+    });
+    await expect(handleExtensionMessage({ type: 'manualSweep' }, deps)).resolves.toEqual({
+      summary: {
+        checkedAt: now,
+        evaluatedCount: 0,
+        discardedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+      },
+    });
+    await expect(handleExtensionMessage({ type: 'pauseAutomation' }, deps)).resolves.toEqual({
+      settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 },
+    });
+    await expect(
+      handleExtensionMessage({ type: 'saveSettings', idleMinutes: 60 }, deps),
+    ).resolves.toEqual({
+      settings: { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+    });
+    await expect(handleExtensionMessage({ type: 'resetSettings' }, deps)).resolves.toEqual({
+      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+    });
+    expect(deps.storage.data).toEqual({
+      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      latestSweepSummary: {
+        checkedAt: now,
+        evaluatedCount: 0,
+        discardedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+      },
+    });
+  });
+
   it('recreates the single repeating sweep alarm when automation is enabled', async () => {
     const deps = dependencies();
 

@@ -12,6 +12,8 @@
 
 - Load the unpacked build in Chrome 121+.
 - Confirm the manifest requests only `alarms` and `storage`, with no host permissions.
+- Verify the packaged popup and settings page expose keyboard-operable controls, `aria-live` status
+  updates, local privacy links, all four presets, and the unsaved-work warning.
 - Exercise options persistence and service-worker alarm scheduling without visiting or collecting page data.
 - Verify protected tabs are not discarded and eligible tabs are processed serially up to the cap.
 

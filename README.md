@@ -20,7 +20,7 @@ The settings page offers the 15, 30, 60, and 120 minute presets, resets to defau
 
 ## Development
 
-Requires Node.js 20.11+ and Chrome 121+.
+Requires Node.js 20.19+ (Node 22 recommended) and Chrome 121+.
 
 ```sh
 npm ci

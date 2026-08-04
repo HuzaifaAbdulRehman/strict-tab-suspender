@@ -15,6 +15,7 @@ describe('listPackageEntries', () => {
         'manifest.json',
         'background/service-worker.js',
         'shared/settings.js',
+        'popup/index.html',
         'options/index.html',
         'icons/icon-128.png',
       ]),
@@ -22,6 +23,7 @@ describe('listPackageEntries', () => {
       'manifest.json',
       'background/service-worker.js',
       'shared/settings.js',
+      'popup/index.html',
       'options/index.html',
       'icons/icon-128.png',
     ]);

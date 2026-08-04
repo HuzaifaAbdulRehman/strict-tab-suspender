@@ -20,6 +20,8 @@ describe('user interface artifacts', () => {
     expect(popup).toContain('Discarded tabs remain in the tab bar and reload when opened.');
     expect(popup).toMatch(/cannot detect unsaved forms or\s+in-memory work/u);
     expect(popup).toMatch(/id="status"[^>]*aria-live="polite"/u);
+    expect(popup).toMatch(/<button[^>]*type="button"/u);
+    expect(popup).toMatch(/<nav[^>]*aria-label=/u);
     expect(popup).toMatch(/href="\.\.\/options\/index\.html"/u);
     expect(popup).toMatch(/href="\.\.\/options\/index\.html#privacy"/u);
     expect(popup).not.toMatch(/\bon\w+\s*=/iu);
@@ -38,6 +40,9 @@ describe('user interface artifacts', () => {
     );
     expect(options).toContain('cannot detect unsaved forms or in-memory work');
     expect(options).toContain('<dialog');
+    expect(options).toContain('<fieldset>');
+    expect(options).toMatch(/<label>\s*<input type="radio"/u);
+    expect(options).toMatch(/<button[^>]*type="submit"/u);
     expect(options).toMatch(/id="status"[^>]*aria-live="polite"/u);
     expect(options).not.toMatch(/\bon\w+\s*=/iu);
     expect(options).not.toMatch(/https?:\/\//iu);

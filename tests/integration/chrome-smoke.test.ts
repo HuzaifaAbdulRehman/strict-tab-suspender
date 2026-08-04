@@ -25,7 +25,7 @@ describe('packaged Chrome extension smoke', () => {
     async () => {
       const browser = await puppeteer.launch({
         executablePath: chromeExecutable!,
-        headless: false,
+        headless: true,
         pipe: true,
         enableExtensions: [extensionPath],
         args: ['--no-first-run'],

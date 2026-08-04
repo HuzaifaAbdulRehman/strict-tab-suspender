@@ -61,7 +61,7 @@ async function testExtension(extensionDirectory, label) {
   try {
     browser = await puppeteer.launch({
       executablePath: findChrome(),
-      headless: false,
+      headless: true,
       pipe: true,
       enableExtensions: [extensionDirectory],
       args: ['--no-first-run'],

@@ -16,5 +16,12 @@ describe('Chrome smoke command', () => {
     expect(packageJson.scripts.smoke).toContain('npm run package');
     expect(packageJson.scripts.smoke).toContain('smoke:chrome');
     expect(packageJson.scripts['smoke:chrome']).toBe('node scripts/smoke-extension.mjs');
+
+    const smokeScript = await readFile(
+      path.join(process.cwd(), 'scripts', 'smoke-extension.mjs'),
+      'utf8',
+    );
+    expect(smokeScript).toContain('headless: true');
+    expect(smokeScript).not.toContain('headless: false');
   });
 });

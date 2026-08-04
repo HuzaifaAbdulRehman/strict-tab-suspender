@@ -1,0 +1,42 @@
+{
+  "name": "strict-tab-suspender",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private-first Chrome extension that discards eligible inactive tabs.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package-extension.mjs",
+    "package:verify": "node scripts/verify-package.mjs",
+    "release:verify": "npm run verify && npm run smoke:chrome",
+    "package:reproducible": "node scripts/verify-reproducible-package.mjs",
+    "smoke": "npm run build && npm run package && npm run package:verify && npm run smoke:chrome",
+    "smoke:chrome": "node scripts/smoke-extension.mjs",
+    "test": "vitest run tests/unit",
+    "test:watch": "vitest",
+    "test:integration": "npm run build && vitest run tests/integration",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:integration && npm run build && npm run package && npm run package:verify && npm run package:reproducible"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.1",
+    "@types/node": "^22.1.0",
+    "archiver": "^7.0.1",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.9.1",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.3",
+    "puppeteer": "^24.43.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.0",
+    "unzipper": "^0.12.3",
+    "vitest": "^4.1.10"
+  }
+}

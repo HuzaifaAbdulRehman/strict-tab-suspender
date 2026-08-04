@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings · Strict Tab Discarder</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="index.js"></script>
+  </head>
+  <body>
+    <main class="options-shell">
+      <header class="brand">
+        <img src="../icons/icon-48.png" alt="" width="42" height="42" />
+        <div>
+          <p class="eyebrow">PRIVATE-FIRST</p>
+          <h1>Strict Tab Discarder</h1>
+          <p>Settings are stored locally in Chrome.</p>
+        </div>
+      </header>
+      <section class="card" aria-labelledby="automation-heading">
+        <div class="section-heading">
+          <div>
+            <p class="label" id="automation-heading">Automation status</p>
+            <p id="state" class="state">Loading…</p>
+          </div>
+          <span class="local-badge">Local only</span>
+        </div>
+        <p>
+          Approximate alarm timing may vary when Chrome is busy. Pinned and audible tabs are always
+          protected and cannot be disabled.
+        </p>
+      </section>
+      <form id="settings-form" class="card" aria-labelledby="threshold-heading">
+        <fieldset>
+          <legend id="threshold-heading">
+            Discard tabs after they have been inactive for about
+          </legend>
+          <div class="preset-grid">
+            <label
+              ><input type="radio" name="idleMinutes" value="15" checked disabled /> 15
+              minutes</label
+            ><label><input type="radio" name="idleMinutes" value="30" disabled /> 30 minutes</label
+            ><label><input type="radio" name="idleMinutes" value="60" disabled /> 60 minutes</label
+            ><label
+              ><input type="radio" name="idleMinutes" value="120" disabled /> 120 minutes</label
+            >
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button class="primary" type="submit" disabled>Save settings</button
+          ><button id="open-reset" class="secondary" type="button" disabled>
+            Reset to defaults
+          </button>
+        </div>
+      </form>
+      <p id="status" class="status" aria-live="polite"></p>
+      <section id="privacy" class="card guidance" aria-labelledby="privacy-heading">
+        <h2 id="privacy-heading">Privacy and limitations</h2>
+        <p>
+          Settings and only the latest aggregate sweep summary stay on this device. No URLs, titles,
+          tab IDs, page content, or browsing history are stored.
+        </p>
+        <p>Discarded tabs remain in the tab bar and reload when opened.</p>
+        <p id="warning" class="warning">
+          This extension cannot detect unsaved forms or in-memory work. Save important work first.
+        </p>
+        <p id="protection" class="protection">
+          Pinned and audible tabs are always protected and cannot be disabled.
+        </p>
+      </section>
+    </main>
+    <dialog id="reset-dialog" aria-labelledby="reset-title">
+      <h2 id="reset-title">Reset settings?</h2>
+      <p>This restores automatic discarding and the 15-minute default.</p>
+      <div class="actions">
+        <button id="confirm-reset" class="primary" type="button">Reset settings</button
+        ><button id="cancel-reset" class="secondary" type="button">Cancel</button>
+      </div>
+    </dialog>
+  </body>
+</html>

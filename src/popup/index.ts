@@ -29,7 +29,7 @@ function messenger(): ExtensionMessenger {
 
 const discardNow = byId<HTMLButtonElement>('discard-now');
 const pauseAction = byId<HTMLButtonElement>('pause-action');
-const protectionAction = byId<HTMLButtonElement>('protection-action');
+const protectionAction = byId<HTMLButtonElement>('protect-tab');
 let busy = true;
 let protectionAvailable = false;
 
@@ -45,7 +45,7 @@ const view: PopupView = {
       name === 'pauseAction'
         ? 'pause-action'
         : name === 'protectionAction'
-          ? 'protection-action'
+          ? 'protect-tab'
           : name === 'protectionDescription'
             ? 'protection-description'
             : name;

@@ -15,6 +15,7 @@ import {
 const approvedEntries = [
   'background/eligibility.js',
   'background/service-worker.js',
+  'background/suspension.js',
   'background/sweep.js',
   'icons/icon-16.png',
   'icons/icon-32.png',
@@ -30,6 +31,11 @@ const approvedEntries = [
   'popup/styles.css',
   'shared/messages.js',
   'shared/settings.js',
+  'shared/suspended-url.js',
+  'suspended/index.html',
+  'suspended/index.js',
+  'suspended/styles.css',
+  'suspended/suspended-controller.js',
 ];
 const temporaryDirectories: string[] = [];
 const require = createRequire(import.meta.url);
@@ -68,6 +74,15 @@ async function writePackageWithManifest(manifest: Record<string, unknown>): Prom
 }
 
 describe('listPackageEntries', () => {
+  it('rejects optional permissions beyond the reviewed tabs permission', () => {
+    expect(() =>
+      validatePackageManifest({
+        manifest_version: 3,
+        permissions: ['alarms', 'storage'],
+        optional_permissions: ['tabs', 'history'],
+      }),
+    ).toThrow('Package optional permissions must be exactly tabs.');
+  });
   it('rejects an archive entry outside the extension build output', () => {
     expect(() => listPackageEntries(['manifest.json', '../README.md'])).toThrow(
       'Package contains an unsafe entry: ../README.md',
@@ -75,46 +90,9 @@ describe('listPackageEntries', () => {
   });
 
   it('accepts built extension paths', () => {
-    expect(
-      listPackageEntries([
-        'manifest.json',
-        'background/eligibility.js',
-        'background/service-worker.js',
-        'background/sweep.js',
-        'icons/icon-16.png',
-        'icons/icon-32.png',
-        'icons/icon-48.png',
-        'icons/icon-128.png',
-        'shared/settings.js',
-        'shared/messages.js',
-        'popup/index.html',
-        'popup/index.js',
-        'popup/popup-controller.js',
-        'popup/styles.css',
-        'options/index.html',
-        'options/index.js',
-        'options/options-controller.js',
-        'options/styles.css',
-      ]),
-    ).toEqual([
+    expect(listPackageEntries(['manifest.json', ...approvedEntries])).toEqual([
       'manifest.json',
-      'background/eligibility.js',
-      'background/service-worker.js',
-      'background/sweep.js',
-      'icons/icon-16.png',
-      'icons/icon-32.png',
-      'icons/icon-48.png',
-      'icons/icon-128.png',
-      'shared/settings.js',
-      'shared/messages.js',
-      'popup/index.html',
-      'popup/index.js',
-      'popup/popup-controller.js',
-      'popup/styles.css',
-      'options/index.html',
-      'options/index.js',
-      'options/options-controller.js',
-      'options/styles.css',
+      ...approvedEntries,
     ]);
   });
 
@@ -142,6 +120,7 @@ describe('listPackageEntries', () => {
       validatePackageManifest({
         manifest_version: 3,
         permissions: ['alarms', 'storage'],
+        optional_permissions: ['tabs'],
         host_permissions: ['https://example.test/*'],
       }),
     ).toThrow('Package manifest must not declare host permissions.');
@@ -151,6 +130,7 @@ describe('listPackageEntries', () => {
     const archivePath = await writePackageWithManifest({
       manifest_version: 3,
       permissions: ['alarms', 'storage'],
+      optional_permissions: ['tabs'],
       content_security_policy: {
         extension_pages:
           "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src https:",

@@ -28,10 +28,7 @@ export function createParkingCoordinator(
   async function restoreIfParked(tabId: number, originalUrl: string): Promise<void> {
     try {
       const current = await tabs.get(tabId);
-      if (
-        current.url !== undefined &&
-        isSuspendedPageUrl(current.url, extensionPageUrl)
-      ) {
+      if (current.url !== undefined && isSuspendedPageUrl(current.url, extensionPageUrl)) {
         await tabs.update(tabId, { url: originalUrl });
       }
     } catch {

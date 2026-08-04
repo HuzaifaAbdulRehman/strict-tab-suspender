@@ -57,9 +57,7 @@ describe('click suspension coordinator', () => {
 
     await expect(state.coordinator.park(tab(7))).resolves.toBe('discarded');
 
-    expect(state.calls[0]).toMatch(
-      /^update:7:chrome-extension:\/\/id\/suspended\/index\.html#/u,
-    );
+    expect(state.calls[0]).toMatch(/^update:7:chrome-extension:\/\/id\/suspended\/index\.html#/u);
     expect(state.calls).not.toContain('discard:7');
   });
 

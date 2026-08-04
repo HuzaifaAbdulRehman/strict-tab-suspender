@@ -71,7 +71,11 @@ describe('service-worker durable startup grace', () => {
         },
         onActivated: { addListener() {} },
       },
-      permissions: { async contains() { return false; } },
+      permissions: {
+        async contains() {
+          return false;
+        },
+      },
       runtime: {
         getURL: (path: string) => `chrome-extension://id/${path}`,
         onInstalled: { addListener() {} },

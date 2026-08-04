@@ -56,9 +56,9 @@ describe('settings', () => {
   it('rejects an unknown restore behavior before writing it', async () => {
     const storage = storageWith();
 
-    await expect(
-      saveSettings({ restoreBehavior: 'automatic' } as never, storage),
-    ).rejects.toThrow('restoreBehavior must be native or click');
+    await expect(saveSettings({ restoreBehavior: 'automatic' } as never, storage)).rejects.toThrow(
+      'restoreBehavior must be native or click',
+    );
     expect(storage.data).toEqual({});
   });
 

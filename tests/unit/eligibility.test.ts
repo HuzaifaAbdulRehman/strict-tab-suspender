@@ -21,12 +21,7 @@ describe('evaluateTab', () => {
       reason: 'already-discarded',
     });
     expect(
-      evaluateTab(
-        { ...eligibleTab, discarded: true },
-        now,
-        15,
-        { allowAlreadyDiscarded: true },
-      ),
+      evaluateTab({ ...eligibleTab, discarded: true }, now, 15, { allowAlreadyDiscarded: true }),
     ).toEqual({ eligible: true });
   });
   it('accepts a tab at the exact fifteen-minute idle boundary', () => {

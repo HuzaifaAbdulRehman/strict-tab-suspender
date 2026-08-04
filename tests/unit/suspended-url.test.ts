@@ -34,7 +34,7 @@ describe('suspended URL codec', () => {
     ).toBeUndefined();
   });
 
-  it.each(['', '#v=2&url=https%3A%2F%2Fexample.test', '#v=1&url=%E0%A4%A']) (
+  it.each(['', '#v=2&url=https%3A%2F%2Fexample.test', '#v=1&url=%E0%A4%A'])(
     'rejects malformed or unsupported hash %s',
     (hash) => {
       expect(readOriginalUrlFromHash(hash)).toBeUndefined();

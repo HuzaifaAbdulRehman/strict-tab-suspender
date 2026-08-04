@@ -137,11 +137,10 @@ describe('service worker scheduler', () => {
     const deps = dependencies();
     const senderUrl = 'chrome-extension://id/suspended/index.html#v=1';
 
-    await handleExtensionMessage(
-      { type: 'suspensionPageReady' },
-      deps,
-      { tab: { id: 7 }, url: senderUrl },
-    );
+    await handleExtensionMessage({ type: 'suspensionPageReady' }, deps, {
+      tab: { id: 7 },
+      url: senderUrl,
+    });
 
     expect(deps.calls).toContain(`ready:7:${senderUrl}`);
   });
@@ -370,7 +369,11 @@ describe('service worker module lifecycle', () => {
             },
           },
         },
-        permissions: { async contains() { return false; } },
+        permissions: {
+          async contains() {
+            return false;
+          },
+        },
         runtime: {
           getURL: (path: string) => `chrome-extension://id/${path}`,
           onInstalled: {

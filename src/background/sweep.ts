@@ -14,10 +14,7 @@ export interface TabsAdapter {
   query(queryInfo?: { active?: boolean; lastFocusedWindow?: boolean }): Promise<TabSnapshot[]>;
   get(tabId: number): Promise<TabSnapshot>;
   discard(tabId: number): Promise<TabSnapshot | undefined>;
-  update(
-    tabId: number,
-    update: { url?: string; autoDiscardable?: boolean },
-  ): Promise<TabSnapshot>;
+  update(tabId: number, update: { url?: string; autoDiscardable?: boolean }): Promise<TabSnapshot>;
 }
 
 export interface SweepDependencies {

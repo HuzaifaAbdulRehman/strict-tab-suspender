@@ -166,9 +166,7 @@ describe('runSweep', () => {
   });
 
   it('can convert an already-discarded http tab only in click mode', async () => {
-    const deps = dependencies([
-      tab(1, { url: 'https://example.test/', discarded: true }),
-    ]);
+    const deps = dependencies([tab(1, { url: 'https://example.test/', discarded: true })]);
     deps.storage.data.settings = {
       schemaVersion: 2,
       enabled: true,

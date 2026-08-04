@@ -87,7 +87,8 @@ export async function handleExtensionMessage(
     const summary = stored.latestSweepSummary;
     const activeTabs = await dependencies.tabs.query({ active: true, lastFocusedWindow: true });
     const currentTab = activeTabs[0];
-    const supported = currentTab?.id !== undefined && typeof currentTab.autoDiscardable === 'boolean';
+    const supported =
+      currentTab?.id !== undefined && typeof currentTab.autoDiscardable === 'boolean';
     return {
       settings: await getSettings(dependencies.storage),
       ...(isSweepSummary(summary) ? { summary } : {}),

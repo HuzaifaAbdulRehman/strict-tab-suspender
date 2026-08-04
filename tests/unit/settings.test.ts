@@ -27,11 +27,39 @@ describe('settings', () => {
   it('uses the documented defaults when no settings have been saved', async () => {
     const storage = storageWith();
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       enabled: true,
       idleMinutes: 15,
+      restoreBehavior: 'native',
     });
-    expect(DEFAULT_SETTINGS).toEqual({ schemaVersion: 1, enabled: true, idleMinutes: 15 });
+    expect(DEFAULT_SETTINGS).toEqual({
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'native',
+    });
+  });
+
+  it('migrates valid v1 settings to native restore behavior', async () => {
+    const storage = storageWith({
+      settings: { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+    });
+
+    await expect(getSettings(storage)).resolves.toEqual({
+      schemaVersion: 2,
+      enabled: false,
+      idleMinutes: 60,
+      restoreBehavior: 'native',
+    });
+  });
+
+  it('rejects an unknown restore behavior before writing it', async () => {
+    const storage = storageWith();
+
+    await expect(
+      saveSettings({ restoreBehavior: 'automatic' } as never, storage),
+    ).rejects.toThrow('restoreBehavior must be native or click');
+    expect(storage.data).toEqual({});
   });
 
   it('merges a valid partial save without persisting caller metadata', async () => {
@@ -40,7 +68,12 @@ describe('settings', () => {
     await saveSettings({ idleMinutes: 60, ignored: 'metadata' } as never, storage);
 
     expect(storage.data).toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 60 },
+      settings: {
+        schemaVersion: 2,
+        enabled: true,
+        idleMinutes: 60,
+        restoreBehavior: 'native',
+      },
     });
   });
 
@@ -74,10 +107,15 @@ describe('settings', () => {
     releaseWrites();
 
     await expect(saves).resolves.toEqual([
-      { schemaVersion: 1, enabled: false, idleMinutes: 15 },
-      { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+      { schemaVersion: 2, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
+      { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
     ]);
-    expect(data.settings).toEqual({ schemaVersion: 1, enabled: false, idleMinutes: 60 });
+    expect(data.settings).toEqual({
+      schemaVersion: 2,
+      enabled: false,
+      idleMinutes: 60,
+      restoreBehavior: 'native',
+    });
   });
 
   it('rejects a non-preset idle period before writing it', async () => {
@@ -95,9 +133,10 @@ describe('settings', () => {
     });
 
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       enabled: false,
       idleMinutes: 15,
+      restoreBehavior: 'native',
     });
   });
 
@@ -112,9 +151,10 @@ describe('settings', () => {
     });
 
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       enabled: true,
       idleMinutes: 30,
+      restoreBehavior: 'native',
     });
   });
 
@@ -151,10 +191,15 @@ describe('settings', () => {
     releaseFirstWrite();
 
     await expect(Promise.all([save, reset])).resolves.toEqual([
-      { schemaVersion: 1, enabled: false, idleMinutes: 60 },
-      { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
+      { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     ]);
-    expect(data.settings).toEqual({ schemaVersion: 1, enabled: true, idleMinutes: 15 });
+    expect(data.settings).toEqual({
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'native',
+    });
   });
 
   it('resets to the documented default settings', async () => {
@@ -165,7 +210,12 @@ describe('settings', () => {
     await resetSettings(storage);
 
     expect(storage.data).toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: {
+        schemaVersion: 2,
+        enabled: true,
+        idleMinutes: 15,
+        restoreBehavior: 'native',
+      },
     });
   });
 });

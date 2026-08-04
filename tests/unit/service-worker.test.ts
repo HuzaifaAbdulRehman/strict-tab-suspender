@@ -77,7 +77,7 @@ describe('service worker scheduler', () => {
     const deps = dependencies();
 
     await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await expect(handleExtensionMessage({ type: 'manualSweep' }, deps)).resolves.toEqual({
       summary: {
@@ -89,18 +89,18 @@ describe('service worker scheduler', () => {
       },
     });
     await expect(handleExtensionMessage({ type: 'pauseAutomation' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await expect(
       handleExtensionMessage({ type: 'saveSettings', idleMinutes: 60 }, deps),
     ).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+      settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
     });
     await expect(handleExtensionMessage({ type: 'resetSettings' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     expect(deps.storage.data).toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
       latestSweepSummary: {
         checkedAt: now,
         evaluatedCount: 0,
@@ -159,8 +159,22 @@ describe('service worker scheduler', () => {
     await resumeAutomation(deps);
 
     expect(deps.storage.writes).toEqual([
-      { settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 } },
-      { settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } },
+      {
+        settings: {
+          schemaVersion: 2,
+          enabled: false,
+          idleMinutes: 15,
+          restoreBehavior: 'native',
+        },
+      },
+      {
+        settings: {
+          schemaVersion: 2,
+          enabled: true,
+          idleMinutes: 15,
+          restoreBehavior: 'native',
+        },
+      },
     ]);
     expect(deps.calls).toEqual([
       'clear:strict-tab-discarder-sweep',

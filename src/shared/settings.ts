@@ -1,9 +1,11 @@
 export type IdleMinutes = 15 | 30 | 60 | 120;
+export type RestoreBehavior = 'native' | 'click';
 
 export interface Settings {
-  schemaVersion: 1;
+  schemaVersion: 2;
   enabled: boolean;
   idleMinutes: IdleMinutes;
+  restoreBehavior: RestoreBehavior;
 }
 
 export interface SweepSummary {
@@ -21,9 +23,10 @@ export interface LocalStorageArea {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   enabled: true,
   idleMinutes: 15,
+  restoreBehavior: 'native',
 };
 
 export const SETTINGS_STORAGE_KEY = 'settings';
@@ -44,7 +47,13 @@ function isIdleMinutes(value: unknown): value is IdleMinutes {
   return value === 15 || value === 30 || value === 60 || value === 120;
 }
 
-function isSettings(value: unknown): value is Settings {
+function isRestoreBehavior(value: unknown): value is RestoreBehavior {
+  return value === 'native' || value === 'click';
+}
+
+function isV1Settings(
+  value: unknown,
+): value is { schemaVersion: 1; enabled: boolean; idleMinutes: IdleMinutes } {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
@@ -54,13 +63,33 @@ function isSettings(value: unknown): value is Settings {
   );
 }
 
+function isSettings(value: unknown): value is Settings {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.schemaVersion === 2 &&
+    typeof candidate.enabled === 'boolean' &&
+    isIdleMinutes(candidate.idleMinutes) &&
+    isRestoreBehavior(candidate.restoreBehavior)
+  );
+}
+
 function normalizeSettings(value: unknown): Settings {
   if (value === undefined) return { ...DEFAULT_SETTINGS };
-  if (isSettings(value)) {
+  if (isV1Settings(value)) {
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       enabled: value.enabled,
       idleMinutes: value.idleMinutes,
+      restoreBehavior: 'native',
+    };
+  }
+  if (isSettings(value)) {
+    return {
+      schemaVersion: 2,
+      enabled: value.enabled,
+      idleMinutes: value.idleMinutes,
+      restoreBehavior: value.restoreBehavior,
     };
   }
   return { ...DEFAULT_SETTINGS, enabled: false };
@@ -86,7 +115,7 @@ export async function getSettings(storage: LocalStorageArea = defaultStorage()):
 }
 
 export async function saveSettings(
-  update: Partial<Pick<Settings, 'enabled' | 'idleMinutes'>>,
+  update: Partial<Pick<Settings, 'enabled' | 'idleMinutes' | 'restoreBehavior'>>,
   storage: LocalStorageArea = defaultStorage(),
 ): Promise<Settings> {
   if (update.enabled !== undefined && typeof update.enabled !== 'boolean') {
@@ -95,13 +124,17 @@ export async function saveSettings(
   if (update.idleMinutes !== undefined && !isIdleMinutes(update.idleMinutes)) {
     throw new TypeError('idleMinutes must be one of 15, 30, 60, or 120');
   }
+  if (update.restoreBehavior !== undefined && !isRestoreBehavior(update.restoreBehavior)) {
+    throw new TypeError('restoreBehavior must be native or click');
+  }
 
   return serializeSettingsWrite(storage, async () => {
     const existing = await getSettings(storage);
     const settings: Settings = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       enabled: update.enabled ?? existing.enabled,
       idleMinutes: update.idleMinutes ?? existing.idleMinutes,
+      restoreBehavior: update.restoreBehavior ?? existing.restoreBehavior,
     };
     await storage.set({ [SETTINGS_STORAGE_KEY]: settings });
     return settings;

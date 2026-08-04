@@ -25,7 +25,12 @@ function tab(id: number, changes: Partial<TabSnapshot> = {}): TabSnapshot {
 }
 
 function storageWith(
-  settings = { schemaVersion: 1 as const, enabled: true, idleMinutes: 15 as const },
+  settings = {
+    schemaVersion: 2 as const,
+    enabled: true,
+    idleMinutes: 15 as const,
+    restoreBehavior: 'native' as const,
+  },
 ) {
   const data: Record<string, unknown> = { settings };
   const storage: LocalStorageArea & {
@@ -238,7 +243,7 @@ describe('runSweep', () => {
     await expect(
       discardIfStillEligible(
         { ...tab(1), id: undefined },
-        { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+        { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
         deps,
       ),
     ).resolves.toBe('skipped');

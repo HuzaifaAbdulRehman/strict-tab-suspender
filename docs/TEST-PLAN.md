@@ -19,4 +19,4 @@
 
 ## Release gate
 
-Run `npm run verify`, a Chrome 121+ manual smoke test, and inspect the ZIP entries before release. Use a test profile and pages without unsaved work; unsaved-form detection is not possible.
+Run `npm run verify`, a Chrome 121+ manual smoke test, inspect the ZIP inventory, verify its SHA-256 checksum, and review the CycloneDX SBOM before release. Use a dedicated test profile and pages without unsaved work; unsaved-form detection is not possible. Automated Chrome smoke tests run headlessly and must not open visible browser windows.

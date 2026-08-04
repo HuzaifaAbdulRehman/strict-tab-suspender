@@ -32,6 +32,21 @@ const expectedPackageEntries = new Set([
   'shared/settings.js',
 ]);
 
+export function validatePackageManifest(manifest) {
+  if (manifest.manifest_version !== 3) {
+    throw new Error('Package manifest must use Manifest V3.');
+  }
+  if (JSON.stringify(manifest.permissions) !== JSON.stringify(['alarms', 'storage'])) {
+    throw new Error('Package manifest permissions must be exactly alarms and storage.');
+  }
+  if (manifest.host_permissions !== undefined) {
+    throw new Error('Package manifest must not declare host permissions.');
+  }
+  if (manifest.content_scripts !== undefined) {
+    throw new Error('Package manifest must not declare content scripts.');
+  }
+}
+
 export function listPackageEntries(entries) {
   const normalizedEntries = entries.map((entry) => entry.replaceAll('\\', '/'));
   if (!normalizedEntries.includes('manifest.json')) {
@@ -75,6 +90,16 @@ export async function verifyPackage(archivePath = packagePath) {
   const entries = listPackageEntries(
     archive.files.filter((file) => !file.path.endsWith('/')).map((file) => file.path),
   );
+  const manifestFile = archive.files.find((file) => file.path === 'manifest.json');
+  if (manifestFile === undefined) throw new Error('Package manifest.json is missing.');
+  validatePackageManifest(JSON.parse((await manifestFile.buffer()).toString('utf8')));
+
+  for (const file of archive.files) {
+    if (!/\.(?:css|html|js|json)$/iu.test(file.path)) continue;
+    if (/\b(?:https?|wss?):\/\//iu.test((await file.buffer()).toString('utf8'))) {
+      throw new Error(`Package contains a remote URL or code reference: ${file.path}`);
+    }
+  }
   console.log(
     `Verified ${entries.length} extension build file(s) in ${path.basename(archivePath)}.`,
   );

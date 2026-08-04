@@ -28,6 +28,16 @@ jobs:
       - run: npm run build
       - run: npm run package
       - run: npm run package:verify
+      - run: npm run package:reproducible
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strict-tab-discarder-${{ github.sha }}
+          path: |
+            package/*.zip
+            package/*.zip.sha256
+            package/*.contents.txt
+            package/*.cdx.json
+          if-no-files-found: error
 
   dependency-review:
     if: github.event_name == 'pull_request'

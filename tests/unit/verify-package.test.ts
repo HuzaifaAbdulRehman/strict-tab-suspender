@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { listPackageEntries } from '../../scripts/verify-package.mjs';
+import { listPackageEntries, validatePackageManifest } from '../../scripts/verify-package.mjs';
 
 describe('listPackageEntries', () => {
   it('rejects an archive entry outside the extension build output', () => {
@@ -70,5 +70,15 @@ describe('listPackageEntries', () => {
     expect(() => listPackageEntries(['background/service-worker.js'])).toThrow(
       'Package must contain manifest.json at its root.',
     );
+  });
+
+  it('rejects package manifests that expand the private permission contract', () => {
+    expect(() =>
+      validatePackageManifest({
+        manifest_version: 3,
+        permissions: ['alarms', 'storage'],
+        host_permissions: ['https://example.test/*'],
+      }),
+    ).toThrow('Package manifest must not declare host permissions.');
   });
 });

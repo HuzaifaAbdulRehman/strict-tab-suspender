@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import archiver from 'archiver';
 
+import { createReleaseArtifacts } from './create-release-artifacts.mjs';
 import { listPackageEntries } from './verify-package.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,7 +42,16 @@ async function listDistributionFiles(directory, relativeDirectory = '') {
 async function createArchive() {
   await rm(packageDirectory, { recursive: true, force: true });
   await mkdir(packageDirectory, { recursive: true });
-  listPackageEntries(await listDistributionFiles(distributionDirectory));
+  const distributionFiles = await listDistributionFiles(distributionDirectory);
+  const archiveEntries = listPackageEntries(distributionFiles);
+  const archiveFiles = await Promise.all(
+    distributionFiles
+      .sort((left, right) => left.localeCompare(right, 'en'))
+      .map(async (file) => ({
+        file,
+        contents: await readFile(path.join(distributionDirectory, file)),
+      })),
+  );
 
   await new Promise((resolve, reject) => {
     const output = createWriteStream(packagePath);
@@ -49,8 +59,21 @@ async function createArchive() {
     output.on('close', resolve);
     archive.on('error', reject);
     archive.pipe(output);
-    archive.directory(distributionDirectory, false);
+    for (const { file, contents } of archiveFiles) {
+      archive.append(contents, {
+        name: file.replaceAll('\\', '/'),
+        date: new Date('1980-01-01T00:00:00.000Z'),
+        mode: 0o100644,
+      });
+    }
     archive.finalize();
+  });
+
+  await createReleaseArtifacts({
+    archivePath: packagePath,
+    archiveEntries,
+    outputDirectory: packageDirectory,
+    packageMetadata,
   });
 }
 

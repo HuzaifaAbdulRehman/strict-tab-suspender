@@ -27,7 +27,7 @@ npm ci
 npm run verify
 ```
 
-See [local installation](docs/LOCAL-INSTALL.md), [architecture](docs/ARCHITECTURE.md), and [privacy](PRIVACY.md). Build output is written to `dist/`; `npm run package` creates the ZIP after a successful build.
+See [local installation](docs/LOCAL-INSTALL.md), [architecture](docs/ARCHITECTURE.md), and [privacy](PRIVACY.md). Build output is written to `dist/`; `npm run package` creates a deterministic ZIP plus its SHA-256 checksum, reviewed contents inventory, and CycloneDX SBOM.
 
 ## License
 

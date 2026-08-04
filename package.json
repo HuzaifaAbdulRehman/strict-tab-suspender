@@ -11,6 +11,7 @@
     "build": "node scripts/build.mjs",
     "package": "node scripts/package-extension.mjs",
     "package:verify": "node scripts/verify-package.mjs",
+    "package:reproducible": "node scripts/verify-reproducible-package.mjs",
     "smoke": "npm run build && npm run package && npm run package:verify && npm run smoke:chrome",
     "smoke:chrome": "node scripts/smoke-extension.mjs",
     "test": "vitest run tests/unit",
@@ -20,7 +21,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:integration && npm run build && npm run package && npm run package:verify"
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:integration && npm run build && npm run package && npm run package:verify && npm run package:reproducible"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

@@ -20,6 +20,8 @@ export interface SweepDependencies {
   tabs: TabsAdapter;
   storage: LocalStorageArea;
   now: () => number;
+  hasTabsPermission(): Promise<boolean>;
+  park(tab: TabSnapshot): Promise<DiscardOutcome>;
 }
 
 export const MAX_DISCARDS_PER_SWEEP = 10;
@@ -46,9 +48,26 @@ export async function discardIfStillEligible(
   } catch {
     return 'failed';
   }
-  if (!evaluateTab(current, dependencies.now(), latestSettings.idleMinutes).eligible)
+  if (
+    !evaluateTab(current, dependencies.now(), latestSettings.idleMinutes, {
+      allowAlreadyDiscarded: latestSettings.restoreBehavior === 'click',
+    }).eligible
+  )
     return 'skipped';
   if (requireAutomationEnabled && !latestSettings.enabled) return 'skipped';
+
+  if (latestSettings.restoreBehavior === 'click') {
+    try {
+      if (!(await dependencies.hasTabsPermission())) return 'skipped';
+    } catch {
+      return 'failed';
+    }
+    try {
+      return await dependencies.park(current);
+    } catch {
+      return 'failed';
+    }
+  }
 
   try {
     const discardedTab = await dependencies.tabs.discard(tab.id);
@@ -77,12 +96,29 @@ export async function runSweep(
     await saveLatestSweepSummary(summary, dependencies.storage);
     return summary;
   }
+  if (settings.restoreBehavior === 'click') {
+    try {
+      if (!(await dependencies.hasTabsPermission())) {
+        await saveLatestSweepSummary(summary, dependencies.storage);
+        return summary;
+      }
+    } catch {
+      summary.failedCount += 1;
+      await saveLatestSweepSummary(summary, dependencies.storage);
+      return summary;
+    }
+  }
   const candidates: TabSnapshot[] = [];
   try {
     const tabs = await dependencies.tabs.query();
     for (const tab of tabs) {
       summary.evaluatedCount += 1;
-      if (evaluateTab(tab, checkedAt, settings.idleMinutes).eligible) candidates.push(tab);
+      if (
+        evaluateTab(tab, checkedAt, settings.idleMinutes, {
+          allowAlreadyDiscarded: settings.restoreBehavior === 'click',
+        }).eligible
+      )
+        candidates.push(tab);
       else summary.skippedCount += 1;
     }
   } catch {

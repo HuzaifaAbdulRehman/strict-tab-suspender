@@ -62,6 +62,14 @@ function dependencies(
     calls,
     storage,
     now: () => now,
+    async hasTabsPermission() {
+      calls.push('permission');
+      return true;
+    },
+    async park(value) {
+      calls.push(`park:${value.id}`);
+      return 'discarded';
+    },
     tabs: {
       async query() {
         calls.push('query');
@@ -82,6 +90,93 @@ function dependencies(
 }
 
 describe('runSweep', () => {
+  it('uses parking instead of native discard in click mode', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 1 });
+
+    expect(deps.calls).toEqual(['permission', 'query', 'get:1', 'permission', 'park:1']);
+    expect(deps.calls).not.toContain('discard:1');
+  });
+
+  it('does not silently fall back when tabs permission is absent', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+    deps.hasTabsPermission = async () => {
+      deps.calls.push('permission');
+      return false;
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 0 });
+    expect(deps.calls).toEqual(['permission']);
+  });
+
+  it('fails closed when click parking rejects unexpectedly', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+    deps.park = async () => Promise.reject(new Error('tab closed'));
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({
+      discardedCount: 0,
+      failedCount: 1,
+    });
+    expect(deps.calls).not.toContain('discard:1');
+  });
+
+  it('rechecks optional permission immediately before parking', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+    let permissionChecks = 0;
+    deps.hasTabsPermission = async () => {
+      deps.calls.push('permission');
+      permissionChecks += 1;
+      return permissionChecks === 1;
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({
+      discardedCount: 0,
+      skippedCount: 1,
+    });
+    expect(deps.calls).toEqual(['permission', 'query', 'get:1', 'permission']);
+  });
+
+  it('can convert an already-discarded http tab only in click mode', async () => {
+    const deps = dependencies([
+      tab(1, { url: 'https://example.test/', discarded: true }),
+    ]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 1 });
+    expect(deps.calls).toContain('park:1');
+    expect(deps.calls).not.toContain('discard:1');
+  });
+
   it('does not query tabs for a disabled automatic sweep', async () => {
     const deps = dependencies([]);
     deps.storage.data.settings = { schemaVersion: 1, enabled: false, idleMinutes: 15 };

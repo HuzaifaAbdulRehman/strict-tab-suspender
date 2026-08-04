@@ -23,6 +23,7 @@ describe('extension manifest', () => {
       version: '0.1.0',
       minimum_chrome_version: '121',
       permissions: ['alarms', 'storage'],
+      optional_permissions: ['tabs'],
       background: { service_worker: 'background/service-worker.js', type: 'module' },
     });
   });

@@ -86,6 +86,30 @@ legend {
   gap: 10px;
   margin-top: 16px;
 }
+.restore-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.restore-grid label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.restore-grid span {
+  display: grid;
+  gap: 4px;
+}
+.restore-grid small {
+  color: #4b5c75;
+  line-height: 1.45;
+}
+.permission-disclosure {
+  margin-top: 18px;
+  border-left: 4px solid #0369a1;
+  padding: 12px 14px;
+  background: #f0f9ff;
+}
 label {
   border: 1px solid #cbd5e1;
   border-radius: 9px;
@@ -202,6 +226,12 @@ button:disabled {
     color: #a5f3fc;
     border-color: #155e75;
     background: #083344;
+  }
+  .restore-grid small {
+    color: #cbd5e1;
+  }
+  .permission-disclosure {
+    background: #0c4a6e;
   }
   .warning {
     color: #fed7aa !important;

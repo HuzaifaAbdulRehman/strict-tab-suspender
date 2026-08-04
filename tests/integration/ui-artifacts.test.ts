@@ -39,6 +39,11 @@ describe('user interface artifacts', () => {
       'Pinned and audible tabs are always protected and cannot be disabled.',
     );
     expect(options).toContain('cannot detect unsaved forms or in-memory work');
+    expect(options).toContain('name="restoreBehavior" value="native"');
+    expect(options).toContain('name="restoreBehavior" value="click"');
+    expect(options).toContain('Read your browsing history');
+    expect(options).toContain('It is not encrypted');
+    expect(options).toContain('not saved in extension storage or sent over the network');
     expect(options).toContain('<dialog');
     expect(options).toContain('<fieldset>');
     expect(options).toMatch(/<label>\s*<input type="radio"/u);

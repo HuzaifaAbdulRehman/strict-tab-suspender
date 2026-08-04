@@ -1,4 +1,5 @@
 import { createOptionsController, type OptionsView } from './options-controller.js';
+import type { RestoreBehavior } from '../shared/settings.js';
 import type {
   ExtensionMessenger,
   ExtensionRequest,
@@ -7,6 +8,12 @@ import type {
 
 interface RuntimeApi {
   sendMessage(message: ExtensionRequest): Promise<ExtensionResponse>;
+}
+
+interface PermissionsApi {
+  contains(request: { permissions: ['tabs'] }): Promise<boolean>;
+  request(request: { permissions: ['tabs'] }): Promise<boolean>;
+  remove(request: { permissions: ['tabs'] }): Promise<boolean>;
 }
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -18,6 +25,9 @@ function byId<T extends HTMLElement>(id: string): T {
 const form = byId<HTMLFormElement>('settings-form');
 const saveButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
 const idleMinuteInputs = form.querySelectorAll<HTMLInputElement>('input[name="idleMinutes"]');
+const restoreBehaviorInputs = document.querySelectorAll<HTMLInputElement>(
+  'input[name="restoreBehavior"]',
+);
 const resetButton = byId<HTMLButtonElement>('open-reset');
 const dialog = byId<HTMLDialogElement>('reset-dialog');
 const confirmReset = byId<HTMLButtonElement>('confirm-reset');
@@ -31,6 +41,9 @@ const messenger: ExtensionMessenger = {
       : runtime.sendMessage(message);
   },
 };
+const permissions = (
+  globalThis as typeof globalThis & { chrome?: { permissions?: PermissionsApi } }
+).chrome?.permissions;
 const view: OptionsView = {
   setText(name, value) {
     byId(name).textContent = value;
@@ -41,21 +54,45 @@ const view: OptionsView = {
     );
     if (input !== null) input.checked = true;
   },
+  setRestoreBehavior(value) {
+    const input = document.querySelector<HTMLInputElement>(
+      `input[name="restoreBehavior"][value="${value}"]`,
+    );
+    if (input !== null) input.checked = true;
+  },
   setBusy(value) {
     if (saveButton !== null) saveButton.disabled = value;
     idleMinuteInputs.forEach((input) => {
+      input.disabled = value;
+    });
+    restoreBehaviorInputs.forEach((input) => {
       input.disabled = value;
     });
     resetButton.disabled = value;
     confirmReset.disabled = value;
   },
 };
-const controller = createOptionsController(view, messenger);
+const controller = createOptionsController(view, messenger, {
+  contains(request) {
+    return permissions?.contains(request) ?? Promise.resolve(false);
+  },
+  request(request) {
+    return permissions?.request(request) ?? Promise.resolve(false);
+  },
+  remove(request) {
+    return permissions?.remove(request) ?? Promise.resolve(false);
+  },
+});
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   const selected = form.querySelector<HTMLInputElement>('input[name="idleMinutes"]:checked');
   if (selected !== null) void controller.save(Number(selected.value));
+});
+restoreBehaviorInputs.forEach((input) => {
+  input.addEventListener('change', () => {
+    if (input.checked) void controller.setRestoreBehavior(input.value as RestoreBehavior);
+  });
 });
 resetButton.addEventListener('click', () => dialog.showModal());
 cancelReset.addEventListener('click', () => dialog.close());

@@ -25,6 +25,9 @@ function view(): OptionsView & { values: Record<string, string>; busy: boolean }
     setIdleMinutes(value) {
       values.idleMinutes = String(value);
     },
+    setRestoreBehavior(value) {
+      values.restoreBehavior = value;
+    },
     setBusy(value) {
       this.busy = value;
     },
@@ -32,6 +35,77 @@ function view(): OptionsView & { values: Record<string, string>; busy: boolean }
 }
 
 describe('options controller', () => {
+  it('requests tabs permission before saving click behavior', async () => {
+    const options = view();
+    const calls: unknown[] = [];
+    const controller = createOptionsController(
+      options,
+      {
+        async sendMessage(message) {
+          calls.push(['message', message]);
+          return {
+            settings: {
+              schemaVersion: 2,
+              enabled: true,
+              idleMinutes: 15,
+              restoreBehavior: 'click',
+            },
+          };
+        },
+      },
+      {
+        async contains() {
+          return false;
+        },
+        async request(request) {
+          calls.push(['request', request]);
+          return true;
+        },
+        async remove() {
+          return true;
+        },
+      },
+    );
+
+    await controller.setRestoreBehavior('click');
+
+    expect(calls).toEqual([
+      ['request', { permissions: ['tabs'] }],
+      ['message', { type: 'setRestoreBehavior', restoreBehavior: 'click' }],
+    ]);
+    expect(options.values.restoreBehavior).toBe('click');
+  });
+
+  it('leaves native behavior selected when permission is denied', async () => {
+    const options = view();
+    const controller = createOptionsController(
+      options,
+      {
+        async sendMessage() {
+          throw new Error('not reached');
+        },
+      },
+      {
+        async contains() {
+          return false;
+        },
+        async request() {
+          return false;
+        },
+        async remove() {
+          return true;
+        },
+      },
+    );
+
+    await controller.setRestoreBehavior('click');
+
+    expect(options.values.restoreBehavior).toBe('native');
+    expect(options.values.status).toBe(
+      'Permission was not granted. Restore behavior was not changed.',
+    );
+  });
+
   it('loads the documented preset and local-only safety guidance', async () => {
     const options = view();
     const controller = createOptionsController(options, {
@@ -100,7 +174,12 @@ describe('options controller', () => {
       async sendMessage(message) {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
-          settings: { schemaVersion: 2, enabled: true, idleMinutes: 120, restoreBehavior: 'native' },
+          settings: {
+            schemaVersion: 2,
+            enabled: true,
+            idleMinutes: 120,
+            restoreBehavior: 'native',
+          },
         };
       },
     });

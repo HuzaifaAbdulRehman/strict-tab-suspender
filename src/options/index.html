@@ -53,6 +53,40 @@
           </button>
         </div>
       </form>
+      <section class="card" aria-labelledby="restore-heading">
+        <fieldset>
+          <legend id="restore-heading">How suspended tabs restore</legend>
+          <div class="restore-grid">
+            <label>
+              <input type="radio" name="restoreBehavior" value="native" checked disabled />
+              <span
+                ><strong>Open normally</strong
+                ><small>Chrome reloads the page when you select its tab.</small></span
+              >
+            </label>
+            <label>
+              <input type="radio" name="restoreBehavior" value="click" disabled />
+              <span
+                ><strong>Click to restore</strong
+                ><small
+                  >The tab opens a lightweight local page and waits for your Restore tab
+                  click.</small
+                ></span
+              >
+            </label>
+          </div>
+        </fieldset>
+        <div class="permission-disclosure" aria-label="Permission disclosure">
+          <strong>Permission required for click to restore</strong>
+          <p>Chrome describes the optional permission as “Read your browsing history.”</p>
+          <p>
+            It lets this extension read the original address only when suspending that tab. The
+            address is percent-encoded in the local suspended page address so it survives a browser
+            restart. It is not encrypted and can appear in Chrome's address bar, session restore,
+            and history. It is not saved in extension storage or sent over the network.
+          </p>
+        </div>
+      </section>
       <p id="status" class="status" aria-live="polite"></p>
       <section id="privacy" class="card guidance" aria-labelledby="privacy-heading">
         <h2 id="privacy-heading">Privacy and limitations</h2>
@@ -60,7 +94,10 @@
           Settings and only the latest aggregate sweep summary stay on this device. No URLs, titles,
           tab IDs, page content, or browsing history are stored.
         </p>
-        <p>Discarded tabs remain in the tab bar and reload when opened.</p>
+        <p>
+          Native-mode tabs reload when opened. Click-mode tabs wait for an explicit Restore tab
+          action.
+        </p>
         <p id="warning" class="warning">
           This extension cannot detect unsaved forms or in-memory work. Save important work first.
         </p>

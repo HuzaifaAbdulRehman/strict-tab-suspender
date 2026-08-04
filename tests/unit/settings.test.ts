@@ -65,6 +65,23 @@ describe('settings', () => {
     });
   });
 
+  it('strips unknown metadata from otherwise valid stored settings', async () => {
+    const storage = storageWith({
+      settings: {
+        schemaVersion: 1,
+        enabled: true,
+        idleMinutes: 30,
+        title: 'must not persist',
+      },
+    });
+
+    await expect(getSettings(storage)).resolves.toEqual({
+      schemaVersion: 1,
+      enabled: true,
+      idleMinutes: 30,
+    });
+  });
+
   it('resets to the documented default settings', async () => {
     const storage = storageWith({
       settings: { schemaVersion: 1, enabled: false, idleMinutes: 120 },

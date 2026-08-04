@@ -55,7 +55,13 @@ function isSettings(value: unknown): value is Settings {
 
 function normalizeSettings(value: unknown): Settings {
   if (value === undefined) return { ...DEFAULT_SETTINGS };
-  if (isSettings(value)) return { ...DEFAULT_SETTINGS, ...value };
+  if (isSettings(value)) {
+    return {
+      schemaVersion: 1,
+      enabled: value.enabled,
+      idleMinutes: value.idleMinutes,
+    };
+  }
   return { ...DEFAULT_SETTINGS, enabled: false };
 }
 

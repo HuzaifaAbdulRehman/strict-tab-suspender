@@ -49,6 +49,7 @@ export function evaluateTab(
   if (
     typeof tab.lastAccessed !== 'number' ||
     !Number.isFinite(tab.lastAccessed) ||
+    tab.lastAccessed < 0 ||
     tab.lastAccessed > now ||
     now - tab.lastAccessed < threshold
   ) {

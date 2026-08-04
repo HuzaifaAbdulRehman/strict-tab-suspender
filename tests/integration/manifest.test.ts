@@ -35,7 +35,8 @@ describe('extension manifest', () => {
     expect(manifest.web_accessible_resources).toBeUndefined();
     expect(manifest.externally_connectable).toBeUndefined();
     expect(manifest.content_security_policy).toEqual({
-      extension_pages: "script-src 'self'; object-src 'self'; connect-src 'none'",
+      extension_pages:
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src 'none'",
     });
   });
 });

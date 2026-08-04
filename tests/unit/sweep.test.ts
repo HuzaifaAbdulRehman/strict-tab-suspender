@@ -57,7 +57,6 @@ function dependencies(
     calls,
     storage,
     now: () => now,
-    startedAt: now - 10 * 60 * 1000,
     tabs: {
       async query() {
         calls.push('query');
@@ -71,6 +70,7 @@ function dependencies(
       },
       async discard(id) {
         calls.push(`discard:${id}`);
+        return tab(id);
       },
     },
   };
@@ -121,6 +121,7 @@ describe('runSweep', () => {
       deps.calls.push(`discard:${id}`);
       await Promise.resolve();
       concurrent -= 1;
+      return tab(id);
     };
 
     const summary = await runSweep('manual', deps);
@@ -138,9 +139,8 @@ describe('runSweep', () => {
     expect(highestConcurrent).toBe(1);
   });
 
-  it('allows an explicit manual sweep during the automatic startup grace', async () => {
+  it('allows an explicit manual sweep without depending on automatic alarm timing', async () => {
     const deps = dependencies([tab(1)]);
-    deps.startedAt = now - 1;
 
     await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 1 });
   });
@@ -173,6 +173,19 @@ describe('runSweep', () => {
         },
       },
     ]);
+  });
+
+  it('does not count an undefined discard result as a discarded tab', async () => {
+    const deps = dependencies([tab(1)]);
+    deps.tabs.discard = async () => undefined;
+
+    await expect(runSweep('manual', deps)).resolves.toEqual({
+      checkedAt: now,
+      evaluatedCount: 1,
+      discardedCount: 0,
+      skippedCount: 0,
+      failedCount: 1,
+    });
   });
 
   it('never fetches or discards a tab without an id', async () => {
@@ -209,4 +222,18 @@ describe('runSweep', () => {
       expect(deps.calls.some((call) => call.startsWith('discard:'))).toBe(false);
     }
   });
+
+  it.each(['active', 'audible'] as const)(
+    'skips a tab that becomes %s between query and discard',
+    async (changedState) => {
+      const deps = dependencies([tab(1)], new Map([[1, tab(1, { [changedState]: true })]]));
+
+      await expect(runSweep('manual', deps)).resolves.toMatchObject({
+        discardedCount: 0,
+        skippedCount: 1,
+        failedCount: 0,
+      });
+      expect(deps.calls).toEqual(['query', 'get:1']);
+    },
+  );
 });

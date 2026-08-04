@@ -1,13 +1,14 @@
 import { getSettings, saveSettings, type LocalStorageArea } from '../shared/settings.js';
-import { runSweep, type SweepDependencies, type TabsAdapter } from './sweep.js';
+import { STARTUP_GRACE_MS, runSweep, type SweepDependencies, type TabsAdapter } from './sweep.js';
 import type { TabSnapshot } from './eligibility.js';
 
 export const ALARM_NAME = 'strict-tab-discarder-sweep';
 export const ALARM_PERIOD_MINUTES = 1;
 
 export interface AlarmsAdapter {
+  get(name: string): Promise<{ name: string; scheduledTime: number } | undefined>;
   clear(name: string): Promise<boolean>;
-  create(name: string, info: { periodInMinutes: number }): void | Promise<void>;
+  create(name: string, info: { when: number; periodInMinutes: number }): void | Promise<void>;
 }
 
 export interface ServiceWorkerDependencies extends SweepDependencies {
@@ -21,15 +22,26 @@ export interface ServiceWorkerController {
   onAlarm(alarm: { name: string }): Promise<void>;
 }
 
-export async function ensureSweepAlarm(dependencies: ServiceWorkerDependencies): Promise<void> {
+export async function ensureSweepAlarm(
+  dependencies: ServiceWorkerDependencies,
+  resetExistingForBrowserStartup = false,
+): Promise<void> {
   if (dependencies.storage.setAccessLevel !== undefined) {
     await dependencies.storage.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   }
   const settings = await getSettings(dependencies.storage);
-  await dependencies.alarms.clear(ALARM_NAME);
-  if (settings.enabled) {
-    await dependencies.alarms.create(ALARM_NAME, { periodInMinutes: ALARM_PERIOD_MINUTES });
+  if (!settings.enabled) {
+    await dependencies.alarms.clear(ALARM_NAME);
+    return;
   }
+
+  const existingAlarm = await dependencies.alarms.get(ALARM_NAME);
+  if (existingAlarm !== undefined && !resetExistingForBrowserStartup) return;
+  if (existingAlarm !== undefined) await dependencies.alarms.clear(ALARM_NAME);
+  await dependencies.alarms.create(ALARM_NAME, {
+    when: dependencies.now() + STARTUP_GRACE_MS,
+    periodInMinutes: ALARM_PERIOD_MINUTES,
+  });
 }
 
 export async function pauseAutomation(dependencies: ServiceWorkerDependencies): Promise<void> {
@@ -50,7 +62,7 @@ export function createServiceWorkerController(
       await ensureSweepAlarm(dependencies);
     },
     async onStartup() {
-      await ensureSweepAlarm(dependencies);
+      await ensureSweepAlarm(dependencies, true);
     },
     async onStorageChanged(changes, areaName) {
       if (areaName === 'local' && Object.hasOwn(changes, 'settings')) {
@@ -73,14 +85,15 @@ export interface ExtensionChrome {
     onChanged?: ChromeEvents<(changes: Record<string, unknown>, areaName: string) => void>;
   };
   alarms?: {
+    get(name: string): Promise<{ name: string; scheduledTime: number } | undefined>;
     clear(name: string): Promise<boolean>;
-    create(name: string, info: { periodInMinutes: number }): void;
+    create(name: string, info: { when: number; periodInMinutes: number }): void;
     onAlarm?: ChromeEvents<(alarm: { name: string }) => void>;
   };
   tabs?: {
     query(queryInfo: Record<string, never>): Promise<TabSnapshot[]>;
     get(tabId: number): Promise<TabSnapshot>;
-    discard(tabId: number): Promise<unknown>;
+    discard(tabId: number): Promise<TabSnapshot | undefined>;
   };
   runtime?: {
     onInstalled?: ChromeEvents<() => void>;
@@ -92,10 +105,7 @@ function browserChrome(): ExtensionChrome | undefined {
   return (globalThis as typeof globalThis & { chrome?: ExtensionChrome }).chrome;
 }
 
-function browserDependencies(
-  browser: ExtensionChrome,
-  startedAt: number,
-): ServiceWorkerDependencies {
+function browserDependencies(browser: ExtensionChrome): ServiceWorkerDependencies {
   if (
     browser?.storage?.local === undefined ||
     browser.alarms === undefined ||
@@ -113,15 +123,11 @@ function browserDependencies(
     storage: browser.storage.local,
     tabs,
     now: Date.now,
-    startedAt,
   };
 }
 
-export function registerServiceWorker(
-  browser: ExtensionChrome,
-  startedAt = Date.now(),
-): ServiceWorkerController {
-  const dependencies = browserDependencies(browser, startedAt);
+export function registerServiceWorker(browser: ExtensionChrome): ServiceWorkerController {
+  const dependencies = browserDependencies(browser);
   const controller = createServiceWorkerController(dependencies);
   browser.runtime?.onInstalled?.addListener(() => void controller.onInstalled());
   browser.runtime?.onStartup?.addListener(() => void controller.onStartup());
@@ -133,7 +139,6 @@ export function registerServiceWorker(
   return controller;
 }
 
-const moduleStartedAt = Date.now();
 const loadedChrome = browserChrome();
 
 if (
@@ -142,5 +147,5 @@ if (
   loadedChrome.storage?.local !== undefined &&
   loadedChrome.tabs !== undefined
 ) {
-  registerServiceWorker(loadedChrome, moduleStartedAt);
+  registerServiceWorker(loadedChrome);
 }

@@ -42,9 +42,12 @@ function dependencies(
   return {
     calls,
     storage,
-    startedAt: now - 10 * 60 * 1000,
     now: () => now,
     alarms: {
+      async get(name) {
+        calls.push(`get:${name}`);
+        return undefined;
+      },
       async clear(name) {
         calls.push(`clear:${name}`);
         return true;
@@ -77,7 +80,7 @@ describe('service worker scheduler', () => {
     expect(ALARM_NAME).toBe('strict-tab-discarder-sweep');
     expect(ALARM_PERIOD_MINUTES).toBe(1);
     expect(deps.calls).toEqual([
-      'clear:strict-tab-discarder-sweep',
+      'get:strict-tab-discarder-sweep',
       'create:strict-tab-discarder-sweep:1',
     ]);
   });
@@ -116,7 +119,7 @@ describe('service worker scheduler', () => {
     ]);
     expect(deps.calls).toEqual([
       'clear:strict-tab-discarder-sweep',
-      'clear:strict-tab-discarder-sweep',
+      'get:strict-tab-discarder-sweep',
       'create:strict-tab-discarder-sweep:1',
     ]);
   });
@@ -130,23 +133,38 @@ describe('service worker scheduler', () => {
     await controller.onStorageChanged({ settings: { newValue: { enabled: false } } }, 'local');
 
     expect(deps.calls).toEqual([
-      'clear:strict-tab-discarder-sweep',
+      'get:strict-tab-discarder-sweep',
       'create:strict-tab-discarder-sweep:1',
-      'clear:strict-tab-discarder-sweep',
+      'get:strict-tab-discarder-sweep',
       'create:strict-tab-discarder-sweep:1',
+      'get:strict-tab-discarder-sweep',
+      'create:strict-tab-discarder-sweep:1',
+    ]);
+  });
+
+  it('reschedules an existing alarm from a true browser startup to enforce startup grace', async () => {
+    const deps = dependencies();
+    deps.alarms.get = async () => ({
+      name: ALARM_NAME,
+      scheduledTime: now + ALARM_PERIOD_MINUTES * 60 * 1000,
+    });
+    const controller = createServiceWorkerController(deps);
+
+    await controller.onStartup();
+
+    expect(deps.calls).toEqual([
       'clear:strict-tab-discarder-sweep',
       'create:strict-tab-discarder-sweep:1',
     ]);
   });
 
-  it('does not query tabs for an automatic alarm during the five-minute module-start grace', async () => {
+  it('runs an automatic alarm without using module-local startup state', async () => {
     const deps = dependencies();
-    deps.startedAt = now - 1;
     const controller = createServiceWorkerController(deps);
 
     await controller.onAlarm({ name: ALARM_NAME });
 
-    expect(deps.calls).toEqual([]);
+    expect(deps.calls).toEqual(['query']);
     expect(deps.storage.data).toMatchObject({
       latestSweepSummary: {
         checkedAt: now,
@@ -186,6 +204,9 @@ describe('service worker module lifecycle', () => {
           },
         },
         alarms: {
+          async get() {
+            return undefined;
+          },
           async clear() {
             return true;
           },
@@ -203,7 +224,9 @@ describe('service worker module lifecycle', () => {
           async get() {
             throw new Error('not reached');
           },
-          async discard() {},
+          async discard() {
+            return { id: 1 };
+          },
         },
         runtime: {
           onInstalled: {
@@ -218,7 +241,7 @@ describe('service worker module lifecycle', () => {
           },
         },
       };
-      registerServiceWorker(browser, now);
+      registerServiceWorker(browser);
       return listeners;
     };
 

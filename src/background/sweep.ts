@@ -13,22 +13,17 @@ export type DiscardOutcome = 'discarded' | 'skipped' | 'failed';
 export interface TabsAdapter {
   query(): Promise<TabSnapshot[]>;
   get(tabId: number): Promise<TabSnapshot>;
-  discard(tabId: number): Promise<unknown>;
+  discard(tabId: number): Promise<TabSnapshot | undefined>;
 }
 
 export interface SweepDependencies {
   tabs: TabsAdapter;
   storage: LocalStorageArea;
   now: () => number;
-  startedAt: number;
 }
 
 export const MAX_DISCARDS_PER_SWEEP = 10;
 export const STARTUP_GRACE_MS = 5 * 60 * 1000;
-
-function isDuringStartupGrace(trigger: SweepTrigger, now: number, startedAt: number): boolean {
-  return trigger === 'alarm' && now - startedAt < STARTUP_GRACE_MS;
-}
 
 export async function discardIfStillEligible(
   tab: TabSnapshot,
@@ -47,7 +42,8 @@ export async function discardIfStillEligible(
   if (!evaluateTab(current, dependencies.now(), settings.idleMinutes).eligible) return 'skipped';
 
   try {
-    await dependencies.tabs.discard(tab.id);
+    const discardedTab = await dependencies.tabs.discard(tab.id);
+    if (discardedTab === undefined) return 'failed';
     return 'discarded';
   } catch {
     return 'failed';
@@ -72,11 +68,6 @@ export async function runSweep(
     await saveLatestSweepSummary(summary, dependencies.storage);
     return summary;
   }
-  if (isDuringStartupGrace(trigger, checkedAt, dependencies.startedAt)) {
-    await saveLatestSweepSummary(summary, dependencies.storage);
-    return summary;
-  }
-
   const candidates: TabSnapshot[] = [];
   try {
     const tabs = await dependencies.tabs.query();

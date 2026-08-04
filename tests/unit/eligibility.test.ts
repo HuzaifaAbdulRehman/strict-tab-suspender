@@ -28,6 +28,7 @@ describe('evaluateTab', () => {
     ['missing id', { id: undefined }, 'missing-id'],
     ['too recent', { lastAccessed: now - fifteenMinutes + 1 }, 'too-recent'],
     ['future last accessed', { lastAccessed: now + 1 }, 'too-recent'],
+    ['negative last accessed', { lastAccessed: -1 }, 'too-recent'],
     ['invalid last accessed', { lastAccessed: Number.NaN }, 'too-recent'],
   ] as const)('excludes %s tabs', (_name, patch, reason) => {
     expect(evaluateTab({ ...eligibleTab, ...patch }, now, 15)).toEqual({

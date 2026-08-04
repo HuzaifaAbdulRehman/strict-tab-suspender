@@ -59,7 +59,7 @@ describe('packaged Chrome extension smoke', () => {
           'polite',
         );
         expect(await popup.$eval('#status', (element) => element.textContent)).toBe(
-          'Automatic discarding is paused.',
+          'Automatic suspension is paused.',
         );
 
         const options = await browser.newPage();

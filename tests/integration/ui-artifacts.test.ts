@@ -15,9 +15,11 @@ describe('user interface artifacts', () => {
     const popup = await readSource('popup/index.html');
 
     expect(popup).toContain('Strict Tab Discarder');
-    expect(popup).toContain('Inactive tabs are discarded after about');
-    expect(popup).toContain('Discard eligible tabs now');
-    expect(popup).toContain('Discarded tabs remain in the tab bar and reload when opened.');
+    expect(popup).toContain('Inactive tabs are suspended after about');
+    expect(popup).toContain('Suspend eligible tabs now');
+    expect(popup).toContain('Protect this tab');
+    expect(popup).toContain('Protection applies only to this tab and ends when the tab is closed.');
+    expect(popup).toMatch(/Suspended tabs remain visible[\s\S]*click mode waits for Restore/u);
     expect(popup).toMatch(/cannot detect unsaved forms or\s+in-memory work/u);
     expect(popup).toMatch(/id="status"[^>]*aria-live="polite"/u);
     expect(popup).toMatch(/<button[^>]*type="button"/u);

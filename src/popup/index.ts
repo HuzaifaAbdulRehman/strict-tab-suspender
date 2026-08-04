@@ -29,13 +29,35 @@ function messenger(): ExtensionMessenger {
 
 const discardNow = byId<HTMLButtonElement>('discard-now');
 const pauseAction = byId<HTMLButtonElement>('pause-action');
+const protectionAction = byId<HTMLButtonElement>('protection-action');
+let busy = true;
+let protectionAvailable = false;
+
+function syncDisabledState(): void {
+  discardNow.disabled = busy;
+  pauseAction.disabled = busy;
+  protectionAction.disabled = busy || !protectionAvailable;
+}
+
 const view: PopupView = {
   setText(name, value) {
-    byId(name === 'pauseAction' ? 'pause-action' : name).textContent = value;
+    const id =
+      name === 'pauseAction'
+        ? 'pause-action'
+        : name === 'protectionAction'
+          ? 'protection-action'
+          : name === 'protectionDescription'
+            ? 'protection-description'
+            : name;
+    byId(id).textContent = value;
   },
   setBusy(value) {
-    discardNow.disabled = value;
-    pauseAction.disabled = value;
+    busy = value;
+    syncDisabledState();
+  },
+  setProtectionAvailable(value) {
+    protectionAvailable = value;
+    syncDisabledState();
   },
 };
 const controller = createPopupController(view, messenger(), {
@@ -47,4 +69,5 @@ const controller = createPopupController(view, messenger(), {
 
 discardNow.addEventListener('click', () => void controller.discardNow());
 pauseAction.addEventListener('click', () => void controller.toggleAutomation());
+protectionAction.addEventListener('click', () => void controller.toggleProtection());
 void controller.load();

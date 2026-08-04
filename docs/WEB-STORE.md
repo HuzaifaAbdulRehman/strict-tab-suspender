@@ -1,14 +1,14 @@
-# Chrome Web Store publishing
+# Chrome Web Store draft scope
 
-The future listing must describe Strict Tab Discarder as a private-first Chrome 121+ extension that discards eligible inactive tabs. It must disclose the unsaved-forms limitation.
+Strict Tab Discarder v0.1.0 is a private beta and is not published to the Chrome Web Store. This document records the publication work that remains outside the repository release process.
 
-## Future publishing requirements
+## Before any submission
 
 These account-specific assets cannot exist in the repository yet and are not implementation tasks:
 
 - Publisher identity and verified developer account.
 - Store listing screenshots, small promo tile, and any required promotional images.
 - Store-category selection, support contact, and publisher dashboard declarations.
-- Submitted ZIP from `package/strict-tab-suspender-<version>.zip` after package verification.
+- A freshly reviewed ZIP from `package/strict-tab-suspender-<version>.zip`, with its checksum, SBOM, and contents list verified.
 
-The listing and disclosures must remain consistent with the no-host-permissions, local-only-data, and no-network commitments.
+The store listing and privacy disclosure must remain consistent with the exact `alarms`/`storage` permission surface, local-only data handling, no host permissions, and no network commitments. Do not submit or publish as part of the private-beta release process.

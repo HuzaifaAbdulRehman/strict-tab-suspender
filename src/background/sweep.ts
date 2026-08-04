@@ -29,6 +29,7 @@ export async function discardIfStillEligible(
   tab: TabSnapshot,
   settings: Settings,
   dependencies: SweepDependencies,
+  requireAutomationEnabled = false,
 ): Promise<DiscardOutcome> {
   if (tab.id === undefined) return 'skipped';
 
@@ -40,6 +41,11 @@ export async function discardIfStillEligible(
   }
 
   if (!evaluateTab(current, dependencies.now(), settings.idleMinutes).eligible) return 'skipped';
+
+  if (requireAutomationEnabled) {
+    const latestSettings = await getSettings(dependencies.storage);
+    if (!latestSettings.enabled) return 'skipped';
+  }
 
   try {
     const discardedTab = await dependencies.tabs.discard(tab.id);
@@ -87,7 +93,12 @@ export async function runSweep(
       summary.skippedCount += 1;
       continue;
     }
-    const outcome = await discardIfStillEligible(candidate, settings, dependencies);
+    const outcome = await discardIfStillEligible(
+      candidate,
+      settings,
+      dependencies,
+      trigger === 'alarm',
+    );
     if (outcome === 'discarded') summary.discardedCount += 1;
     if (outcome === 'skipped') summary.skippedCount += 1;
     if (outcome === 'failed') summary.failedCount += 1;

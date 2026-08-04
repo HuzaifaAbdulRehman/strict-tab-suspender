@@ -29,6 +29,8 @@ npm run verify
 
 See [local installation](docs/LOCAL-INSTALL.md), [architecture](docs/ARCHITECTURE.md), and [privacy](PRIVACY.md). Build output is written to `dist/`; `npm run package` creates a deterministic ZIP plus its SHA-256 checksum, reviewed contents inventory, and CycloneDX SBOM.
 
+For the private-beta release gate, run `npm run release:verify` on a Chrome 121+ environment. This repository does not publish to the Chrome Web Store.
+
 ## License
 
-MIT © 2026 Huzaifa Abdul Rehman. See [LICENSE](LICENSE).
+MIT (c) 2026 Huzaifa Abdul Rehman. See [LICENSE](LICENSE).

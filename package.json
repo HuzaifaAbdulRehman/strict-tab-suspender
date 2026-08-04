@@ -11,6 +11,7 @@
     "build": "node scripts/build.mjs",
     "package": "node scripts/package-extension.mjs",
     "package:verify": "node scripts/verify-package.mjs",
+    "release:verify": "npm run verify && npm run smoke:chrome",
     "package:reproducible": "node scripts/verify-reproducible-package.mjs",
     "smoke": "npm run build && npm run package && npm run package:verify && npm run smoke:chrome",
     "smoke:chrome": "node scripts/smoke-extension.mjs",

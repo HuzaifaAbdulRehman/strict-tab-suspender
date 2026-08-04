@@ -145,6 +145,28 @@ describe('runSweep', () => {
     await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 1 });
   });
 
+  it('cancels an in-flight automatic discard when automation is paused', async () => {
+    const deps = dependencies([tab(1)]);
+    let releaseRefresh!: () => void;
+    const refreshStarted = new Promise<void>((resolve) => {
+      deps.tabs.get = async (id) => {
+        resolve();
+        await new Promise<void>((release) => {
+          releaseRefresh = release;
+        });
+        return tab(id);
+      };
+    });
+
+    const sweep = runSweep('alarm', deps);
+    await refreshStarted;
+    deps.storage.data.settings = { schemaVersion: 1, enabled: false, idleMinutes: 15 };
+    releaseRefresh();
+
+    await expect(sweep).resolves.toMatchObject({ discardedCount: 0, skippedCount: 1 });
+    expect(deps.calls.some((call) => call.startsWith('discard:'))).toBe(false);
+  });
+
   it('records API rejection as failure and writes only the aggregate summary', async () => {
     const deps = dependencies([tab(1), tab(2)]);
     deps.tabs.get = async (id) => {

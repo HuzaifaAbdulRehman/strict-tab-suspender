@@ -1,7 +1,7 @@
 # Architecture
 
-The future Manifest V3 extension will have a service worker for alarms, eligibility evaluation, local settings, and serial discard orchestration. Vanilla HTML/CSS option and popup pages will read and update only local settings and the latest aggregate sweep summary.
+The Manifest V3 service worker owns alarm scheduling, eligibility evaluation, local settings, and serial discard orchestration. Vanilla HTML/CSS popup and options pages send local extension messages and render only settings plus the latest aggregate sweep summary.
 
-The service worker will use `chrome.tabs.query` only to identify eligible tabs and `chrome.tabs.discard` only after safeguards are checked. Tab metadata is evaluated in memory and discarded after each sweep; it is not persisted or logged.
+During a sweep, the service worker reads tab state in memory, checks eligibility, refreshes each candidate immediately before discarding it, and discards no more than ten tabs serially. It uses `chrome.tabs.query` and `chrome.tabs.discard` without persisting or logging tab metadata.
 
-There are no content scripts, remote code, network services, accounts, analytics, or ads. Build output is generated into `dist/`, and `scripts/package-extension.mjs` will ZIP only that output after it contains a manifest.
+Only `alarms` and `storage` are declared in the manifest. The extension has no host permissions, content scripts, remote code, network services, accounts, analytics, or ads. `npm run build` creates `dist/`; `npm run package` creates a deterministic ZIP from the approved built files and generates its checksum, SBOM, and content inventory in `package/`.

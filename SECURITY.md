@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes are applied to the current development and released version.
+Security fixes are applied to the current private-beta version (`0.1.0`) and current development branch.
 
 ## Reporting a vulnerability
 

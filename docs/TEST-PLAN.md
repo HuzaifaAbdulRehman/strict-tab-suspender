@@ -1,22 +1,22 @@
 # Test plan
 
-## Unit tests (Vitest)
+## Automated coverage
 
-- Validate settings defaults and 15/30/60/120-minute preset selection.
-- Validate eligibility exclusions for active, pinned, audible, already-discarded, and not-auto-discardable tabs.
-- Validate the five-minute startup grace and 10-item serial sweep cap.
-- Validate that persisted values contain local settings and the latest aggregate summary only.
-- Validate build-package path safety and root-manifest validation.
+- `npm run verify` runs format checking, linting, type checking, unit tests, integration tests, a clean build, packaging, and strict package validation.
+- `npm run smoke:chrome` loads both `dist/` and the generated ZIP into Chrome headlessly, then exercises popup controls, options persistence, reset confirmation, and extension startup.
+- `npm run package` emits the ZIP plus a SHA-256 checksum, CycloneDX SBOM, and sorted archive inventory in `package/`.
 
-## Integration tests (Vitest + Puppeteer)
+## Manual Chrome 121+ cases
 
-- Load the unpacked build in Chrome 121+.
-- Confirm the manifest requests only `alarms` and `storage`, with no host permissions.
-- Verify the packaged popup and settings page expose keyboard-operable controls, `aria-live` status
-  updates, local privacy links, all four presets, and the unsaved-work warning.
-- Exercise options persistence and service-worker alarm scheduling without visiting or collecting page data.
-- Verify protected tabs are not discarded and eligible tabs are processed serially up to the cap.
+Use a throwaway profile and test pages with no unsaved form data.
+
+- Open tabs in two browser windows; confirm only eligible inactive tabs are considered and no more than ten are discarded per sweep.
+- Keep one tab pinned and one audible; confirm both remain protected.
+- Pause/resume automation and change every preset (15, 30, 60, and 120 minutes); reload the extension and confirm settings persist locally.
+- Put the device to sleep and wake it after the threshold; confirm a later alarm sweep remains guarded and no unexpected mass discard occurs.
+- Stop/restart the extension service worker from `chrome://extensions`, then confirm the startup grace period and alarm scheduling recover.
+- Trigger a manual sweep, reset settings through the options dialog, and confirm the UI exposes only aggregate results.
 
 ## Release gate
 
-Run `npm run verify`, a Chrome 121+ manual smoke test, inspect the ZIP inventory, verify its SHA-256 checksum, and review the CycloneDX SBOM before release. Use a dedicated test profile and pages without unsaved work; unsaved-form detection is not possible. Automated Chrome smoke tests run headlessly and must not open visible browser windows.
+Follow `docs/RELEASE.md`. Inspect the final archive list and evidence files, verify the checksum, and record any environment where Chrome smoke could not run. Unsaved-form detection is not available.

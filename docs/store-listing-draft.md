@@ -1,5 +1,7 @@
 # Store listing draft
 
+Status: draft only. No listing, assets, or publication action is included in the v0.1.0 private beta.
+
 ## Name
 
 Strict Tab Discarder

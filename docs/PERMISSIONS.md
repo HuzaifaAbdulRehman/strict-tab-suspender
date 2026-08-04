@@ -1,6 +1,6 @@
 # Permissions
 
-The manifest may request only the following permissions:
+The v0.1.0 manifest requests exactly the following permissions:
 
 | Permission | Purpose                                                     | Data boundary                                                                       |
 | ---------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |

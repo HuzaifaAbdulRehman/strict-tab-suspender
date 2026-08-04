@@ -10,10 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Repository foundation, privacy documentation, release process, and verification tooling.
-- Manifest V3 service-worker core with local-only settings, guarded eligibility checks, capped serial
-  discards, aggregate sweep summaries, and alarm lifecycle management.
-- Popup and options interfaces with local-only controls, aggregate sweep status, protected-tab guidance,
-  privacy/limitations copy, reset confirmation, and packaged product icons.
-- Deterministic extension ZIP generation with a SHA-256 checksum, reviewed archive inventory, and
-  CycloneDX SBOM declaring the extension's zero runtime dependencies.
+- Private-beta Manifest V3 extension for Chrome 121+ with local-only settings and aggregate sweep summaries.
+- Guarded, serial inactive-tab discarding with the documented defaults, five-minute startup grace, and ten-tab sweep cap.
+- Packaged popup and options interfaces, strict archive validation, deterministic ZIP generation, SHA-256 checksums, CycloneDX SBOM, and archive inventory evidence.
+
+### Security
+
+- Restricted the manifest permission surface to `alarms` and `storage`, with no host permissions, remote code, network requests, telemetry, content scripts, accounts, or ads.
+
+This private beta is not published to the Chrome Web Store.

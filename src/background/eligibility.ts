@@ -23,10 +23,12 @@ export interface TabSnapshot {
   discarded?: boolean;
   autoDiscardable?: boolean;
   lastAccessed?: number | undefined;
+  url?: string | undefined;
 }
 
 export interface EligibilityOptions {
   startupGrace?: boolean;
+  allowAlreadyDiscarded?: boolean;
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -42,8 +44,10 @@ export function evaluateTab(
   if (tab.active === true) return { eligible: false, reason: 'active' };
   if (tab.pinned === true) return { eligible: false, reason: 'pinned' };
   if (tab.audible === true) return { eligible: false, reason: 'audible' };
-  if (tab.discarded === true) return { eligible: false, reason: 'already-discarded' };
   if (tab.autoDiscardable === false) return { eligible: false, reason: 'not-auto-discardable' };
+  if (tab.discarded === true && options.allowAlreadyDiscarded !== true) {
+    return { eligible: false, reason: 'already-discarded' };
+  }
 
   const threshold = idleMinutes * MINUTE_MS;
   if (

@@ -1,5 +1,9 @@
 import { createSuspendedController, type SuspendedView } from './suspended-controller.js';
 
+interface RuntimeApi {
+  sendMessage(message: { type: 'suspensionPageReady' }): Promise<unknown>;
+}
+
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLElement)) throw new Error(`Missing ${id} element.`);
@@ -27,7 +31,10 @@ const controller = createSuspendedController(
     },
   },
   async () => {
-    await chrome.runtime.sendMessage({ type: 'suspensionPageReady' });
+    const runtime = (globalThis as typeof globalThis & { chrome?: { runtime?: RuntimeApi } }).chrome
+      ?.runtime;
+    if (runtime === undefined) throw new Error('Chrome extension APIs are unavailable.');
+    await runtime.sendMessage({ type: 'suspensionPageReady' });
   },
 );
 

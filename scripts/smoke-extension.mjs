@@ -44,14 +44,11 @@ function findChrome() {
 }
 
 async function extensionId(browser) {
-  await new Promise((resolve) => setTimeout(resolve, 750));
-  const worker = browser
-    .targets()
-    .find(
-      (target) =>
-        target.type() === 'service_worker' && target.url().startsWith('chrome-extension://'),
-    );
-  if (worker === undefined) throw new Error('Extension service worker did not start.');
+  const worker = await browser.waitForTarget(
+    (target) =>
+      target.type() === 'service_worker' && target.url().startsWith('chrome-extension://'),
+    { timeout: 10_000 },
+  );
   return new URL(worker.url()).host;
 }
 

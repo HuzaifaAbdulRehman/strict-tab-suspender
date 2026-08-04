@@ -23,5 +23,7 @@ describe('Chrome smoke command', () => {
     );
     expect(smokeScript).toContain('headless: true');
     expect(smokeScript).not.toContain('headless: false');
+    expect(smokeScript).toContain('browser.waitForTarget');
+    expect(smokeScript).not.toContain('setTimeout(resolve, 750)');
   });
 });

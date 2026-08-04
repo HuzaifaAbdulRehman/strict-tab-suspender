@@ -40,12 +40,15 @@ export async function discardIfStillEligible(
     return 'failed';
   }
 
-  if (!evaluateTab(current, dependencies.now(), settings.idleMinutes).eligible) return 'skipped';
-
-  if (requireAutomationEnabled) {
-    const latestSettings = await getSettings(dependencies.storage);
-    if (!latestSettings.enabled) return 'skipped';
+  let latestSettings = settings;
+  try {
+    latestSettings = await getSettings(dependencies.storage);
+  } catch {
+    return 'failed';
   }
+  if (!evaluateTab(current, dependencies.now(), latestSettings.idleMinutes).eligible)
+    return 'skipped';
+  if (requireAutomationEnabled && !latestSettings.enabled) return 'skipped';
 
   try {
     const discardedTab = await dependencies.tabs.discard(tab.id);

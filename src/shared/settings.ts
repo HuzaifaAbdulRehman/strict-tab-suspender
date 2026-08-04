@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const SETTINGS_STORAGE_KEY = 'settings';
 export const LATEST_SUMMARY_STORAGE_KEY = 'latestSweepSummary';
+const settingsWriteQueues = new WeakMap<LocalStorageArea, Promise<unknown>>();
 
 function defaultStorage(): LocalStorageArea {
   const browser = (
@@ -65,6 +66,20 @@ function normalizeSettings(value: unknown): Settings {
   return { ...DEFAULT_SETTINGS, enabled: false };
 }
 
+async function serializeSettingsWrite<T>(
+  storage: LocalStorageArea,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = settingsWriteQueues.get(storage) ?? Promise.resolve();
+  const queued = previous.catch(() => undefined).then(operation);
+  settingsWriteQueues.set(storage, queued);
+  try {
+    return await queued;
+  } finally {
+    if (settingsWriteQueues.get(storage) === queued) settingsWriteQueues.delete(storage);
+  }
+}
+
 export async function getSettings(storage: LocalStorageArea = defaultStorage()): Promise<Settings> {
   const data = await storage.get();
   return normalizeSettings(data[SETTINGS_STORAGE_KEY]);
@@ -81,14 +96,16 @@ export async function saveSettings(
     throw new TypeError('idleMinutes must be one of 15, 30, 60, or 120');
   }
 
-  const existing = await getSettings(storage);
-  const settings: Settings = {
-    schemaVersion: 1,
-    enabled: update.enabled ?? existing.enabled,
-    idleMinutes: update.idleMinutes ?? existing.idleMinutes,
-  };
-  await storage.set({ [SETTINGS_STORAGE_KEY]: settings });
-  return settings;
+  return serializeSettingsWrite(storage, async () => {
+    const existing = await getSettings(storage);
+    const settings: Settings = {
+      schemaVersion: 1,
+      enabled: update.enabled ?? existing.enabled,
+      idleMinutes: update.idleMinutes ?? existing.idleMinutes,
+    };
+    await storage.set({ [SETTINGS_STORAGE_KEY]: settings });
+    return settings;
+  });
 }
 
 export async function resetSettings(

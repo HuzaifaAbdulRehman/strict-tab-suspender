@@ -167,6 +167,28 @@ describe('runSweep', () => {
     expect(deps.calls.some((call) => call.startsWith('discard:'))).toBe(false);
   });
 
+  it('uses the latest timeout when it changes while the final tab refresh is pending', async () => {
+    const deps = dependencies([tab(1)]);
+    let releaseRefresh!: () => void;
+    const refreshStarted = new Promise<void>((resolve) => {
+      deps.tabs.get = async (id) => {
+        resolve();
+        await new Promise<void>((release) => {
+          releaseRefresh = release;
+        });
+        return tab(id);
+      };
+    });
+
+    const sweep = runSweep('manual', deps);
+    await refreshStarted;
+    deps.storage.data.settings = { schemaVersion: 1, enabled: true, idleMinutes: 120 };
+    releaseRefresh();
+
+    await expect(sweep).resolves.toMatchObject({ discardedCount: 0, skippedCount: 1 });
+    expect(deps.calls).toEqual(['query']);
+  });
+
   it('records API rejection as failure and writes only the aggregate summary', async () => {
     const deps = dependencies([tab(1), tab(2)]);
     deps.tabs.get = async (id) => {

@@ -44,6 +44,42 @@ describe('settings', () => {
     });
   });
 
+  it('serializes concurrent pause and timeout updates so neither field is lost', async () => {
+    const data: Record<string, unknown> = {
+      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+    };
+    let releaseWrites!: () => void;
+    let markFirstWrite!: () => void;
+    const firstWriteStarted = new Promise<void>((resolve) => {
+      markFirstWrite = resolve;
+    });
+    const writesReleased = new Promise<void>((resolve) => {
+      releaseWrites = resolve;
+    });
+    const storage: LocalStorageArea = {
+      async get() {
+        return { ...data };
+      },
+      async set(values) {
+        markFirstWrite();
+        await writesReleased;
+        Object.assign(data, values);
+      },
+    };
+    const saves = Promise.all([
+      saveSettings({ enabled: false }, storage),
+      saveSettings({ idleMinutes: 60 }, storage),
+    ]);
+    await firstWriteStarted;
+    releaseWrites();
+
+    await expect(saves).resolves.toEqual([
+      { schemaVersion: 1, enabled: false, idleMinutes: 15 },
+      { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+    ]);
+    expect(data.settings).toEqual({ schemaVersion: 1, enabled: false, idleMinutes: 60 });
+  });
+
   it('rejects a non-preset idle period before writing it', async () => {
     const storage = storageWith();
 

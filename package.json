@@ -1,6 +1,6 @@
 {
   "name": "strict-tab-suspender",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Private-first Chrome extension that discards eligible inactive tabs.",
   "type": "module",

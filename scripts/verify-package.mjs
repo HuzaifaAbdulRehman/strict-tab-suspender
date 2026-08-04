@@ -11,6 +11,26 @@ const packagePath = path.join(
   'package',
   `strict-tab-suspender-${packageMetadata.version}.zip`,
 );
+const approvedDirectories = new Set([
+  'background',
+  'popup',
+  'options',
+  'assets',
+  'icons',
+  '_locales',
+]);
+const approvedExtension = /\.(?:css|gif|html|jpeg|jpg|js|json|mjs|png|svg|ttf|webp|woff|woff2)$/u;
+
+function isApprovedBuiltFile(entry) {
+  if (entry === 'manifest.json') return true;
+
+  const [topLevelDirectory] = entry.split('/');
+  return (
+    topLevelDirectory !== undefined &&
+    approvedDirectories.has(topLevelDirectory) &&
+    approvedExtension.test(entry)
+  );
+}
 
 export function listPackageEntries(entries) {
   for (const entry of entries) {
@@ -23,6 +43,12 @@ export function listPackageEntries(entries) {
     ) {
       throw new Error(`Package contains an unsafe entry: ${entry}`);
     }
+    if (!isApprovedBuiltFile(normalized)) {
+      throw new Error(`Package contains an unapproved built extension file: ${entry}`);
+    }
+  }
+  if (!entries.includes('manifest.json')) {
+    throw new Error('Package must contain manifest.json at its root.');
   }
   return entries;
 }
@@ -36,10 +62,9 @@ export async function verifyPackage(archivePath = packagePath) {
   }
 
   const archive = await unzipper.Open.file(archivePath);
-  const entries = listPackageEntries(archive.files.map((file) => file.path));
-  if (!entries.includes('manifest.json')) {
-    throw new Error('Package must contain manifest.json at its root.');
-  }
+  const entries = listPackageEntries(
+    archive.files.filter((file) => !file.path.endsWith('/')).map((file) => file.path),
+  );
   console.log(
     `Verified ${entries.length} extension build file(s) in ${path.basename(archivePath)}.`,
   );

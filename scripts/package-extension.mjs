@@ -24,11 +24,24 @@ async function hasManifest() {
   }
 }
 
+async function listDistributionFiles(directory, relativeDirectory = '') {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const relativePath = path.join(relativeDirectory, entry.name);
+      if (entry.isDirectory()) {
+        return listDistributionFiles(path.join(directory, entry.name), relativePath);
+      }
+      return [relativePath];
+    }),
+  );
+  return files.flat();
+}
+
 async function createArchive() {
   await rm(packageDirectory, { recursive: true, force: true });
   await mkdir(packageDirectory, { recursive: true });
-  const entries = await readdir(distributionDirectory, { recursive: true });
-  listPackageEntries(entries.filter((entry) => !entry.endsWith(path.sep)));
+  listPackageEntries(await listDistributionFiles(distributionDirectory));
 
   await new Promise((resolve, reject) => {
     const output = createWriteStream(packagePath);

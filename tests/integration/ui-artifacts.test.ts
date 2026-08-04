@@ -33,7 +33,7 @@ describe('user interface artifacts', () => {
 
     for (const minutes of [15, 30, 60, 120]) {
       expect(options).toContain(`value="${minutes}"`);
-      expect(options).toContain(`${minutes} minutes`);
+      expect(options).toMatch(new RegExp(`${minutes}\\s+minutes`, 'u'));
     }
     expect(options).toContain(
       'Pinned and audible tabs are always protected and cannot be disabled.',

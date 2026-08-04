@@ -69,7 +69,17 @@ export function createPopupController(
   options: PopupControllerOptions = {},
 ): PopupController {
   let settings: Settings | undefined;
+  let latestRequest = 0;
   const formatCheckedAt = options.formatCheckedAt;
+
+  function startRequest(): number {
+    latestRequest += 1;
+    return latestRequest;
+  }
+
+  function isLatestRequest(request: number): boolean {
+    return request === latestRequest;
+  }
 
   function applyResponse(response: ExtensionResponse): void {
     const loadedSettings = applySettings(view, response.settings);
@@ -78,21 +88,29 @@ export function createPopupController(
 
   return {
     async load() {
+      const request = startRequest();
+      view.setBusy(true);
       view.setText('status', '');
       try {
         const response = await messenger.sendMessage({ type: 'getPopupState' });
+        if (!isLatestRequest(request)) return;
         applyResponse(response);
         view.setText('summary', formatSummary(response.summary, formatCheckedAt));
       } catch {
+        if (!isLatestRequest(request)) return;
         view.setText('summary', 'No sweep has been recorded yet.');
         view.setText('status', 'Unable to load extension status.');
+      } finally {
+        if (isLatestRequest(request)) view.setBusy(false);
       }
     },
     async discardNow() {
+      const request = startRequest();
       view.setBusy(true);
       view.setText('status', 'Checking eligible tabs…');
       try {
         const response = await messenger.sendMessage({ type: 'manualSweep' });
+        if (!isLatestRequest(request)) return;
         if (!isSummary(response.summary)) throw new Error('invalid summary');
         view.setText(
           'status',
@@ -100,26 +118,30 @@ export function createPopupController(
         );
         view.setText('summary', formatSummary(response.summary, formatCheckedAt));
       } catch {
+        if (!isLatestRequest(request)) return;
         view.setText('status', 'The sweep could not be completed. No tab details were saved.');
       } finally {
-        view.setBusy(false);
+        if (isLatestRequest(request)) view.setBusy(false);
       }
     },
     async toggleAutomation() {
+      const request = startRequest();
       view.setBusy(true);
       try {
         const response = await messenger.sendMessage({
           type: settings?.enabled === false ? 'resumeAutomation' : 'pauseAutomation',
         });
+        if (!isLatestRequest(request)) return;
         applyResponse(response);
         view.setText(
           'status',
           settings?.enabled ? 'Automatic discarding is on.' : 'Automatic discarding is paused.',
         );
       } catch {
+        if (!isLatestRequest(request)) return;
         view.setText('status', 'Unable to update automatic discarding.');
       } finally {
-        view.setBusy(false);
+        if (isLatestRequest(request)) view.setBusy(false);
       }
     },
   };

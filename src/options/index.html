@@ -36,15 +36,21 @@
             Discard tabs after they have been inactive for about
           </legend>
           <div class="preset-grid">
-            <label><input type="radio" name="idleMinutes" value="15" checked /> 15 minutes</label
-            ><label><input type="radio" name="idleMinutes" value="30" /> 30 minutes</label
-            ><label><input type="radio" name="idleMinutes" value="60" /> 60 minutes</label
-            ><label><input type="radio" name="idleMinutes" value="120" /> 120 minutes</label>
+            <label
+              ><input type="radio" name="idleMinutes" value="15" checked disabled /> 15
+              minutes</label
+            ><label><input type="radio" name="idleMinutes" value="30" disabled /> 30 minutes</label
+            ><label><input type="radio" name="idleMinutes" value="60" disabled /> 60 minutes</label
+            ><label
+              ><input type="radio" name="idleMinutes" value="120" disabled /> 120 minutes</label
+            >
           </div>
         </fieldset>
         <div class="actions">
-          <button class="primary" type="submit">Save settings</button
-          ><button id="open-reset" class="secondary" type="button">Reset to defaults</button>
+          <button class="primary" type="submit" disabled>Save settings</button
+          ><button id="open-reset" class="secondary" type="button" disabled>
+            Reset to defaults
+          </button>
         </div>
       </form>
       <p id="status" class="status" aria-live="polite"></p>

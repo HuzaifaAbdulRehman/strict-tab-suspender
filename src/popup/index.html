@@ -22,7 +22,7 @@
           <p id="automation-heading" class="label">Automatic discarding</p>
           <p id="state" class="state">Loading…</p>
         </div>
-        <button id="pause-action" class="secondary" type="button">
+        <button id="pause-action" class="secondary" type="button" disabled>
           Pause automatic discarding
         </button>
       </section>
@@ -30,7 +30,9 @@
       <p id="description" class="description">
         Inactive tabs are discarded after about 15 minutes.
       </p>
-      <button id="discard-now" class="primary" type="button">Discard eligible tabs now</button>
+      <button id="discard-now" class="primary" type="button" disabled>
+        Discard eligible tabs now
+      </button>
       <p id="status" class="status" aria-live="polite"></p>
 
       <section class="card summary-card" aria-labelledby="summary-heading">

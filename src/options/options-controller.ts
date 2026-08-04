@@ -46,14 +46,32 @@ export function createOptionsController(
   view: OptionsView,
   messenger: ExtensionMessenger,
 ): OptionsController {
+  let latestRequest = 0;
+
+  function startRequest(): number {
+    latestRequest += 1;
+    return latestRequest;
+  }
+
+  function isLatestRequest(request: number): boolean {
+    return request === latestRequest;
+  }
+
   return {
     async load() {
+      const request = startRequest();
+      view.setBusy(true);
       view.setText('status', '');
       applyStaticGuidance(view);
       try {
-        applySettings(view, await messenger.sendMessage({ type: 'getPopupState' }));
+        const response = await messenger.sendMessage({ type: 'getPopupState' });
+        if (!isLatestRequest(request)) return;
+        applySettings(view, response);
       } catch {
+        if (!isLatestRequest(request)) return;
         view.setText('status', 'Unable to load settings.');
+      } finally {
+        if (isLatestRequest(request)) view.setBusy(false);
       }
     },
     async save(idleMinutes) {
@@ -61,31 +79,36 @@ export function createOptionsController(
         view.setText('status', 'Choose one of the available time limits.');
         return;
       }
+      const request = startRequest();
       view.setBusy(true);
       try {
-        applySettings(
-          view,
-          await messenger.sendMessage({
-            type: 'saveSettings',
-            idleMinutes: idleMinutes as IdleMinutes,
-          }),
-        );
+        const response = await messenger.sendMessage({
+          type: 'saveSettings',
+          idleMinutes: idleMinutes as IdleMinutes,
+        });
+        if (!isLatestRequest(request)) return;
+        applySettings(view, response);
         view.setText('status', 'Settings saved locally.');
       } catch {
+        if (!isLatestRequest(request)) return;
         view.setText('status', 'Unable to save settings.');
       } finally {
-        view.setBusy(false);
+        if (isLatestRequest(request)) view.setBusy(false);
       }
     },
     async reset() {
+      const request = startRequest();
       view.setBusy(true);
       try {
-        applySettings(view, await messenger.sendMessage({ type: 'resetSettings' }));
+        const response = await messenger.sendMessage({ type: 'resetSettings' });
+        if (!isLatestRequest(request)) return;
+        applySettings(view, response);
         view.setText('status', 'Settings reset to defaults.');
       } catch {
+        if (!isLatestRequest(request)) return;
         view.setText('status', 'Unable to reset settings.');
       } finally {
-        view.setBusy(false);
+        if (isLatestRequest(request)) view.setBusy(false);
       }
     },
   };

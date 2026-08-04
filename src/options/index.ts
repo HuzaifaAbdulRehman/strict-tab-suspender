@@ -17,6 +17,7 @@ function byId<T extends HTMLElement>(id: string): T {
 
 const form = byId<HTMLFormElement>('settings-form');
 const saveButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+const idleMinuteInputs = form.querySelectorAll<HTMLInputElement>('input[name="idleMinutes"]');
 const resetButton = byId<HTMLButtonElement>('open-reset');
 const dialog = byId<HTMLDialogElement>('reset-dialog');
 const confirmReset = byId<HTMLButtonElement>('confirm-reset');
@@ -42,6 +43,9 @@ const view: OptionsView = {
   },
   setBusy(value) {
     if (saveButton !== null) saveButton.disabled = value;
+    idleMinuteInputs.forEach((input) => {
+      input.disabled = value;
+    });
     resetButton.disabled = value;
     confirmReset.disabled = value;
   },

@@ -109,6 +109,12 @@ describe('service worker scheduler', () => {
         failedCount: 0,
       },
     });
+    expect(deps.calls).toEqual(
+      expect.arrayContaining([
+        `clear:${ALARM_NAME}`,
+        `create:${ALARM_NAME}:${ALARM_PERIOD_MINUTES}`,
+      ]),
+    );
   });
 
   it('recreates the single repeating sweep alarm when automation is enabled', async () => {

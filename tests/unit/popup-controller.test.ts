@@ -10,6 +10,14 @@ const summary = {
   failedCount: 1,
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function view(): PopupView & { values: Record<string, string>; busy: boolean } {
   const values: Record<string, string> = {};
   return {
@@ -86,6 +94,32 @@ describe('popup controller', () => {
 
     await controller.toggleAutomation();
     expect(popup.values).toMatchObject({ state: 'On', pauseAction: 'Pause automatic discarding' });
+  });
+
+  it('keeps a newer pause result when the initial load resolves afterwards', async () => {
+    const popup = view();
+    const initialState = deferred<{
+      settings: { schemaVersion: 1; enabled: boolean; idleMinutes: 15 };
+    }>();
+    const controller = createPopupController(popup, {
+      async sendMessage(message) {
+        if (message.type === 'getPopupState') return initialState.promise;
+        return { settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 } };
+      },
+    });
+
+    const loading = controller.load();
+    expect(popup.busy).toBe(true);
+    await controller.toggleAutomation();
+    initialState.resolve({ settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } });
+    await loading;
+
+    expect(popup.values).toMatchObject({
+      state: 'Paused',
+      pauseAction: 'Resume automatic discarding',
+      status: 'Automatic discarding is paused.',
+    });
+    expect(popup.busy).toBe(false);
   });
 
   it('handles corrupt saved summaries and a failed manual request without exposing tab details', async () => {

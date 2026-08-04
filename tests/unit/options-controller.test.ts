@@ -6,6 +6,14 @@ import {
   type OptionsView,
 } from '../../src/options/options-controller.js';
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function view(): OptionsView & { values: Record<string, string>; busy: boolean } {
   const values: Record<string, string> = {};
   return {
@@ -69,6 +77,57 @@ describe('options controller', () => {
       state: 'On',
       status: 'Settings reset to defaults.',
     });
+  });
+
+  it('keeps a newer saved preset when the initial load resolves afterwards', async () => {
+    const options = view();
+    const initialState = deferred<{
+      settings: { schemaVersion: 1; enabled: boolean; idleMinutes: 15 };
+    }>();
+    const controller = createOptionsController(options, {
+      async sendMessage(message) {
+        if (message.type === 'getPopupState') return initialState.promise;
+        return { settings: { schemaVersion: 1, enabled: true, idleMinutes: 120 } };
+      },
+    });
+
+    const loading = controller.load();
+    expect(options.busy).toBe(true);
+    await controller.save(120);
+    initialState.resolve({ settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } });
+    await loading;
+
+    expect(options.values).toMatchObject({
+      idleMinutes: '120',
+      state: 'On',
+      status: 'Settings saved locally.',
+    });
+    expect(options.busy).toBe(false);
+  });
+
+  it('keeps reset defaults when the initial load resolves afterwards', async () => {
+    const options = view();
+    const initialState = deferred<{
+      settings: { schemaVersion: 1; enabled: boolean; idleMinutes: 120 };
+    }>();
+    const controller = createOptionsController(options, {
+      async sendMessage(message) {
+        if (message.type === 'getPopupState') return initialState.promise;
+        return { settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } };
+      },
+    });
+
+    const loading = controller.load();
+    await controller.reset();
+    initialState.resolve({ settings: { schemaVersion: 1, enabled: false, idleMinutes: 120 } });
+    await loading;
+
+    expect(options.values).toMatchObject({
+      idleMinutes: '15',
+      state: 'On',
+      status: 'Settings reset to defaults.',
+    });
+    expect(options.busy).toBe(false);
   });
 
   it('rejects a non-preset value before it reaches the worker', async () => {

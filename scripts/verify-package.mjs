@@ -11,29 +11,34 @@ const packagePath = path.join(
   'package',
   `strict-tab-suspender-${packageMetadata.version}.zip`,
 );
-const approvedDirectories = new Set([
-  'background',
-  'shared',
-  'popup',
-  'options',
-  'assets',
-  'icons',
-  '_locales',
+const expectedPackageEntries = new Set([
+  'manifest.json',
+  'background/eligibility.js',
+  'background/service-worker.js',
+  'background/sweep.js',
+  'icons/icon-16.png',
+  'icons/icon-32.png',
+  'icons/icon-48.png',
+  'icons/icon-128.png',
+  'options/index.html',
+  'options/index.js',
+  'options/options-controller.js',
+  'options/styles.css',
+  'popup/index.html',
+  'popup/index.js',
+  'popup/popup-controller.js',
+  'popup/styles.css',
+  'shared/messages.js',
+  'shared/settings.js',
 ]);
-const approvedExtension = /\.(?:css|gif|html|jpeg|jpg|js|json|mjs|png|svg|ttf|webp|woff|woff2)$/u;
-
-function isApprovedBuiltFile(entry) {
-  if (entry === 'manifest.json') return true;
-
-  const [topLevelDirectory] = entry.split('/');
-  return (
-    topLevelDirectory !== undefined &&
-    approvedDirectories.has(topLevelDirectory) &&
-    approvedExtension.test(entry)
-  );
-}
 
 export function listPackageEntries(entries) {
+  const normalizedEntries = entries.map((entry) => entry.replaceAll('\\', '/'));
+  if (!normalizedEntries.includes('manifest.json')) {
+    throw new Error('Package must contain manifest.json at its root.');
+  }
+
+  const seen = new Set();
   for (const entry of entries) {
     const normalized = entry.replaceAll('\\', '/');
     if (
@@ -44,14 +49,18 @@ export function listPackageEntries(entries) {
     ) {
       throw new Error(`Package contains an unsafe entry: ${entry}`);
     }
-    if (!isApprovedBuiltFile(normalized)) {
+    if (!expectedPackageEntries.has(normalized)) {
       throw new Error(`Package contains an unapproved built extension file: ${entry}`);
     }
+    if (seen.has(normalized)) throw new Error(`Package contains a duplicate entry: ${entry}`);
+    seen.add(normalized);
   }
-  if (!entries.includes('manifest.json')) {
-    throw new Error('Package must contain manifest.json at its root.');
+  for (const expectedEntry of expectedPackageEntries) {
+    if (!seen.has(expectedEntry)) {
+      throw new Error(`Package is missing an expected built extension file: ${expectedEntry}`);
+    }
   }
-  return entries;
+  return normalizedEntries;
 }
 
 export async function verifyPackage(archivePath = packagePath) {

@@ -31,12 +31,15 @@ const expectedPackageEntries = new Set([
   'shared/messages.js',
   'shared/settings.js',
 ]);
+const expectedPermissions = ['alarms', 'storage'];
+const expectedExtensionPageCsp =
+  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src 'none'";
 
 export function validatePackageManifest(manifest) {
   if (manifest.manifest_version !== 3) {
     throw new Error('Package manifest must use Manifest V3.');
   }
-  if (JSON.stringify(manifest.permissions) !== JSON.stringify(['alarms', 'storage'])) {
+  if (JSON.stringify(manifest.permissions) !== JSON.stringify(expectedPermissions)) {
     throw new Error('Package manifest permissions must be exactly alarms and storage.');
   }
   if (manifest.host_permissions !== undefined) {
@@ -44,6 +47,25 @@ export function validatePackageManifest(manifest) {
   }
   if (manifest.content_scripts !== undefined) {
     throw new Error('Package manifest must not declare content scripts.');
+  }
+  if (
+    manifest.optional_permissions !== undefined ||
+    manifest.optional_host_permissions !== undefined
+  ) {
+    throw new Error('Package manifest must not declare optional permissions.');
+  }
+  if (manifest.web_accessible_resources !== undefined) {
+    throw new Error('Package manifest must not declare web-accessible resources.');
+  }
+  if (manifest.externally_connectable !== undefined) {
+    throw new Error('Package manifest must not declare external connections.');
+  }
+  if (
+    typeof manifest.content_security_policy !== 'object' ||
+    manifest.content_security_policy === null ||
+    manifest.content_security_policy.extension_pages !== expectedExtensionPageCsp
+  ) {
+    throw new Error('Package manifest must use the approved extension-page CSP.');
   }
 }
 

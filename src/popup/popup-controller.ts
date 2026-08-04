@@ -23,12 +23,13 @@ function isSettings(value: unknown): value is Settings {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.schemaVersion === 1 &&
+    candidate.schemaVersion === 2 &&
     typeof candidate.enabled === 'boolean' &&
     (candidate.idleMinutes === 15 ||
       candidate.idleMinutes === 30 ||
       candidate.idleMinutes === 60 ||
-      candidate.idleMinutes === 120)
+      candidate.idleMinutes === 120) &&
+    (candidate.restoreBehavior === 'native' || candidate.restoreBehavior === 'click')
   );
 }
 

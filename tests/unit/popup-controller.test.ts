@@ -39,7 +39,15 @@ describe('popup controller', () => {
       popup,
       {
         async sendMessage() {
-          return { settings: { schemaVersion: 1, enabled: true, idleMinutes: 30 }, summary };
+          return {
+            settings: {
+              schemaVersion: 2,
+              enabled: true,
+              idleMinutes: 30,
+              restoreBehavior: 'native',
+            },
+            summary,
+          };
         },
       },
       { formatCheckedAt: () => 'November 14, 2023 at 10:13 PM' },
@@ -82,7 +90,9 @@ describe('popup controller', () => {
     const controller = createPopupController(popup, {
       async sendMessage(message) {
         enabled = message.type === 'pauseAutomation' ? false : true;
-        return { settings: { schemaVersion: 1, enabled, idleMinutes: 15 } };
+        return {
+          settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
+        };
       },
     });
 
@@ -99,19 +109,33 @@ describe('popup controller', () => {
   it('keeps a newer pause result when the initial load resolves afterwards', async () => {
     const popup = view();
     const initialState = deferred<{
-      settings: { schemaVersion: 1; enabled: boolean; idleMinutes: 15 };
+      settings: {
+        schemaVersion: 2;
+        enabled: boolean;
+        idleMinutes: 15;
+        restoreBehavior: 'native';
+      };
     }>();
     const controller = createPopupController(popup, {
       async sendMessage(message) {
         if (message.type === 'getPopupState') return initialState.promise;
-        return { settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 } };
+        return {
+          settings: {
+            schemaVersion: 2,
+            enabled: false,
+            idleMinutes: 15,
+            restoreBehavior: 'native',
+          },
+        };
       },
     });
 
     const loading = controller.load();
     expect(popup.busy).toBe(true);
     await controller.toggleAutomation();
-    initialState.resolve({ settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } });
+    initialState.resolve({
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+    });
     await loading;
 
     expect(popup.values).toMatchObject({
@@ -128,7 +152,12 @@ describe('popup controller', () => {
       async sendMessage(message) {
         if (message.type === 'getPopupState') {
           return {
-            settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+            settings: {
+              schemaVersion: 2,
+              enabled: true,
+              idleMinutes: 15,
+              restoreBehavior: 'native',
+            },
             summary: { checkedAt: 'private title', discardedCount: 1 },
           };
         }

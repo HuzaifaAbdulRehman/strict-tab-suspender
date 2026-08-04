@@ -48,6 +48,18 @@ describe('user interface artifacts', () => {
     expect(options).not.toMatch(/https?:\/\//iu);
   });
 
+  it('provides a generic accessible restore page without browsing metadata placeholders', async () => {
+    const suspended = await readSource('suspended/index.html');
+
+    expect(suspended).toContain('This tab is suspended');
+    expect(suspended).toContain('Restore tab');
+    expect(suspended).toMatch(/id="restore-tab"[^>]*type="button"/u);
+    expect(suspended).toMatch(/id="status"[^>]*aria-live="polite"/u);
+    expect(suspended).not.toMatch(/\b(url|title|hostname|favicon|domain)-(?:value|display)\b/iu);
+    expect(suspended).not.toMatch(/\bon\w+\s*=/iu);
+    expect(suspended).not.toMatch(/https?:\/\//iu);
+  });
+
   it('ships original checked-in icons at every declared size', async () => {
     for (const size of [16, 32, 48, 128]) {
       const icon = path.join(root, 'src', 'icons', `icon-${size}.png`);

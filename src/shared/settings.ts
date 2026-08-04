@@ -111,9 +111,11 @@ export async function saveSettings(
 export async function resetSettings(
   storage: LocalStorageArea = defaultStorage(),
 ): Promise<Settings> {
-  const settings = { ...DEFAULT_SETTINGS };
-  await storage.set({ [SETTINGS_STORAGE_KEY]: settings });
-  return settings;
+  return serializeSettingsWrite(storage, async () => {
+    const settings = { ...DEFAULT_SETTINGS };
+    await storage.set({ [SETTINGS_STORAGE_KEY]: settings });
+    return settings;
+  });
 }
 
 export async function saveLatestSweepSummary(

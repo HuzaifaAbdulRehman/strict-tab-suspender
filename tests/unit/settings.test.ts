@@ -118,6 +118,45 @@ describe('settings', () => {
     });
   });
 
+  it('serializes a reset after an in-flight settings save', async () => {
+    const data: Record<string, unknown> = {
+      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+    };
+    let releaseFirstWrite!: () => void;
+    let markFirstWrite!: () => void;
+    const firstWriteStarted = new Promise<void>((resolve) => {
+      markFirstWrite = resolve;
+    });
+    const firstWriteReleased = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve;
+    });
+    let writes = 0;
+    const storage: LocalStorageArea = {
+      async get() {
+        return { ...data };
+      },
+      async set(values) {
+        writes += 1;
+        if (writes === 1) {
+          markFirstWrite();
+          await firstWriteReleased;
+        }
+        Object.assign(data, values);
+      },
+    };
+
+    const save = saveSettings({ enabled: false, idleMinutes: 60 }, storage);
+    await firstWriteStarted;
+    const reset = resetSettings(storage);
+    releaseFirstWrite();
+
+    await expect(Promise.all([save, reset])).resolves.toEqual([
+      { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+      { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+    ]);
+    expect(data.settings).toEqual({ schemaVersion: 1, enabled: true, idleMinutes: 15 });
+  });
+
   it('resets to the documented default settings', async () => {
     const storage = storageWith({
       settings: { schemaVersion: 1, enabled: false, idleMinutes: 120 },

@@ -52,6 +52,10 @@ function dependencies(
       calls.push(`park:${tab.id}`);
       return 'discarded';
     },
+    async parkCurrent(tab) {
+      calls.push(`park-current:${tab.id}`);
+      return 'discarded';
+    },
     async handleActivated(tabId) {
       calls.push(`activated:${tabId}`);
     },
@@ -146,7 +150,7 @@ describe('service worker scheduler', () => {
     await expect(handleExtensionMessage({ type: 'suspendCurrentTab' }, deps)).resolves.toEqual({
       currentTabAction: 'suspended',
     });
-    expect(deps.calls).toEqual(['query-active', 'get:9', 'park:9']);
+    expect(deps.calls).toEqual(['query-active', 'get:9', 'park-current:9']);
   });
 
   it('saves click restore behavior without an optional-permission check', async () => {

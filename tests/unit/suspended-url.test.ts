@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSuspendedPageUrl,
   isSuspendedPageUrl,
+  MAX_SUSPENDED_URL_LENGTH,
   readSuspendedPayloadFromHash,
 } from '../../src/shared/suspended-url.js';
 
@@ -47,6 +48,18 @@ describe('suspended URL codec', () => {
     });
   });
 
+  it('strips Unicode format and bidi controls while preserving normal Unicode and emoji', () => {
+    const parked = buildSuspendedPageUrl(
+      'https://example.test/',
+      'Normal العربية 🚀\u202eevil\u2066hidden\u200bend',
+      extensionPage,
+    );
+
+    expect(readSuspendedPayloadFromHash(new URL(parked!).hash)?.title).toBe(
+      'Normal العربية 🚀 evil hidden end',
+    );
+  });
+
   it('caps a title at 256 Unicode code points without splitting astral characters', () => {
     const parked = buildSuspendedPageUrl(
       'https://example.test/',
@@ -71,6 +84,27 @@ describe('suspended URL codec', () => {
         extensionPage,
       ),
     ).toBeUndefined();
+  });
+
+  it('rejects a forged version-2 fragment larger than the complete placeholder limit', () => {
+    const forged = `#v=2&url=https%3A%2F%2Fexample.test%2F&title=${'a'.repeat(
+      MAX_SUSPENDED_URL_LENGTH,
+    )}`;
+
+    expect(readSuspendedPayloadFromHash(forged)).toBeUndefined();
+  });
+
+  it('enforces the exact complete URL limit for a production Chrome extension ID', () => {
+    const productionPage = `chrome-extension://${'a'.repeat(32)}/suspended/index.html`;
+    const fixedHash = '#v=2&url=https%3A%2F%2Fexample.test%2F&title=Boundary';
+    const atLimit = `${fixedHash}${'a'.repeat(
+      MAX_SUSPENDED_URL_LENGTH - productionPage.length - fixedHash.length,
+    )}`;
+    const overLimit = `${atLimit}a`;
+
+    expect(`${productionPage}${atLimit}`).toHaveLength(MAX_SUSPENDED_URL_LENGTH);
+    expect(readSuspendedPayloadFromHash(atLimit)).toBeDefined();
+    expect(readSuspendedPayloadFromHash(overLimit)).toBeUndefined();
   });
 
   it.each([

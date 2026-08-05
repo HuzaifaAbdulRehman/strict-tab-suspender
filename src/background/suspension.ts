@@ -10,6 +10,7 @@ export interface ParkingTabsAdapter {
 
 export interface ParkingCoordinator {
   park(tab: TabSnapshot): Promise<DiscardOutcome>;
+  parkCurrent(tab: TabSnapshot): Promise<DiscardOutcome>;
   handleActivated(tabId: number): Promise<void>;
   handlePageReady(tabId: number, senderUrl: string): Promise<void>;
 }
@@ -24,6 +25,7 @@ export interface ImmediateSuspensionTabsAdapter {
 interface PendingParking {
   originalUrl: string;
   cancelled: boolean;
+  exactParkedUrl?: string;
 }
 
 function isSupportedOriginalUrl(value: string | undefined): value is string {
@@ -42,7 +44,7 @@ function isSupportedOriginalUrl(value: string | undefined): value is string {
 
 export async function suspendCurrentTabNow(
   tabs: ImmediateSuspensionTabsAdapter,
-  park: (tab: TabSnapshot) => Promise<DiscardOutcome>,
+  parking: Pick<ParkingCoordinator, 'parkCurrent'>,
 ): Promise<CurrentTabAction> {
   let queried: TabSnapshot;
   try {
@@ -74,7 +76,7 @@ export async function suspendCurrentTabNow(
   }
 
   try {
-    return (await park(fresh)) === 'discarded' ? 'suspended' : 'failed';
+    return (await parking.parkCurrent(fresh)) === 'discarded' ? 'suspended' : 'failed';
   } catch {
     return 'failed';
   }
@@ -97,39 +99,86 @@ export function createParkingCoordinator(
     }
   }
 
-  return {
-    async park(tab) {
-      if (tab.id === undefined || tab.url === undefined) return 'skipped';
-      const parkedUrl = buildSuspendedPageUrl(tab.url, tab.title ?? '', extensionPageUrl);
-      if (parkedUrl === undefined) return 'skipped';
+  async function restoreExactPlaceholder(
+    tabId: number,
+    parkedUrl: string,
+    originalUrl: string,
+  ): Promise<void> {
+    try {
+      const current = await tabs.get(tabId);
+      if (current.id === tabId && current.url === parkedUrl) {
+        await tabs.update(tabId, { url: originalUrl });
+      }
+    } catch {
+      // The tab may have closed or navigated again. Never retry or overwrite a new address.
+    }
+  }
 
-      const state: PendingParking = { originalUrl: tab.url, cancelled: false };
-      pending.set(tab.id, state);
-      try {
-        const updated = await tabs.update(tab.id, { url: parkedUrl });
-        if (state.cancelled || updated.active === true) {
-          if (updated.url !== undefined && isSuspendedPageUrl(updated.url, extensionPageUrl)) {
-            try {
-              await tabs.update(tab.id, { url: state.originalUrl });
-            } catch {
-              // The explicit restore page remains safe and usable if recovery loses the race.
-            }
-          }
+  async function park(tab: TabSnapshot, allowIntentionalActive: boolean): Promise<DiscardOutcome> {
+    if (tab.id === undefined || tab.url === undefined) return 'skipped';
+    const parkedUrl = buildSuspendedPageUrl(tab.url, tab.title ?? '', extensionPageUrl);
+    if (parkedUrl === undefined) return 'skipped';
+
+    const state: PendingParking = {
+      originalUrl: tab.url,
+      cancelled: false,
+      ...(allowIntentionalActive ? { exactParkedUrl: parkedUrl } : {}),
+    };
+    pending.set(tab.id, state);
+    try {
+      const updated = await tabs.update(tab.id, { url: parkedUrl });
+      if (allowIntentionalActive) {
+        const currentActionStayedValid =
+          state.cancelled === false &&
+          updated.id === tab.id &&
+          updated.active === true &&
+          updated.url === parkedUrl &&
+          updated.pinned !== true &&
+          updated.audible !== true &&
+          updated.discarded !== true &&
+          updated.autoDiscardable !== false;
+        if (!currentActionStayedValid) {
+          await restoreExactPlaceholder(tab.id, parkedUrl, state.originalUrl);
           return 'skipped';
         }
         return 'discarded';
-      } catch {
-        return 'failed';
-      } finally {
-        pending.delete(tab.id);
       }
+      if (state.cancelled || updated.active === true) {
+        if (updated.url !== undefined && isSuspendedPageUrl(updated.url, extensionPageUrl)) {
+          try {
+            await tabs.update(tab.id, { url: state.originalUrl });
+          } catch {
+            // The explicit restore page remains safe and usable if recovery loses the race.
+          }
+        }
+        return 'skipped';
+      }
+      return 'discarded';
+    } catch {
+      return 'failed';
+    } finally {
+      pending.delete(tab.id);
+    }
+  }
+
+  return {
+    park(tab) {
+      return park(tab, false);
+    },
+
+    parkCurrent(tab) {
+      return park(tab, true);
     },
 
     async handleActivated(tabId) {
       const state = pending.get(tabId);
       if (state === undefined) return;
       state.cancelled = true;
-      await restoreIfParked(tabId, state.originalUrl);
+      if (state.exactParkedUrl === undefined) {
+        await restoreIfParked(tabId, state.originalUrl);
+      } else {
+        await restoreExactPlaceholder(tabId, state.exactParkedUrl, state.originalUrl);
+      }
     },
 
     async handlePageReady(tabId, senderUrl) {

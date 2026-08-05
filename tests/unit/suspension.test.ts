@@ -176,9 +176,11 @@ describe('immediate current-tab suspension', () => {
               return fresh;
             },
           },
-          async (value) => {
-            calls.push(`park:${value.id}`);
-            return parkResult;
+          {
+            async parkCurrent(value) {
+              calls.push(`park-current:${value.id}`);
+              return parkResult;
+            },
           },
         ),
     };
@@ -189,8 +191,128 @@ describe('immediate current-tab suspension', () => {
     const state = immediateHarness([current], current);
 
     await expect(state.run()).resolves.toBe('suspended');
-    expect(state.calls).toEqual(['query-active', 'get:9', 'park:9']);
+    expect(state.calls).toEqual(['query-active', 'get:9', 'park-current:9']);
   });
+
+  it('suspends an intentionally active tab through the real parking coordinator', async () => {
+    const calls: string[] = [];
+    let current = tab(9, { active: true, lastAccessed: Date.now() });
+    const tabs = {
+      async query() {
+        calls.push('query-active');
+        return [current];
+      },
+      async get(id: number) {
+        calls.push(`get:${id}`);
+        return current;
+      },
+      async update(id: number, update: { url?: string }) {
+        calls.push(`update:${id}:${update.url}`);
+        current = { ...current, id, url: update.url };
+        return current;
+      },
+      async discard(id: number) {
+        calls.push(`discard:${id}`);
+        return current;
+      },
+    };
+    const coordinator = createParkingCoordinator(tabs, extensionPage);
+
+    await expect(suspendCurrentTabNow(tabs, coordinator)).resolves.toBe('suspended');
+
+    expect(current.active).toBe(true);
+    expect(current.url).toMatch(/^chrome-extension:\/\/id\/suspended\/index\.html#/u);
+    expect(calls.filter((call) => call === `update:9:${original}`)).toEqual([]);
+  });
+
+  it('does not overwrite a different placeholder URL when current-action activation cancels', async () => {
+    let releaseUpdate!: (value: TabSnapshot) => void;
+    let markUpdateStarted!: () => void;
+    const updateStarted = new Promise<void>((resolve) => (markUpdateStarted = resolve));
+    const updateResult = new Promise<TabSnapshot>((resolve) => (releaseUpdate = resolve));
+    const calls: string[] = [];
+    let parkedUrl = '';
+    let current = tab(9, { active: true });
+    const differentPlaceholder = `${extensionPage}#v=2&url=https%3A%2F%2Fother.test%2F&title=Other`;
+    const coordinator = createParkingCoordinator(
+      {
+        async get(id) {
+          calls.push(`get:${id}`);
+          return current;
+        },
+        async update(id, update) {
+          calls.push(`update:${id}:${update.url}`);
+          if (update.url === original) {
+            current = tab(id, { active: true, url: original });
+            return current;
+          }
+          parkedUrl = update.url ?? '';
+          markUpdateStarted();
+          return updateResult;
+        },
+        async discard() {
+          return current;
+        },
+      },
+      extensionPage,
+    );
+
+    const parking = coordinator.parkCurrent(current);
+    await updateStarted;
+    current = tab(9, { active: true, url: differentPlaceholder });
+    await coordinator.handleActivated(9);
+    releaseUpdate(tab(9, { active: true, url: parkedUrl }));
+
+    await expect(parking).resolves.toBe('skipped');
+    expect(current.url).toBe(differentPlaceholder);
+    expect(calls).not.toContain(`update:9:${original}`);
+  });
+
+  it.each([
+    ['becomes inactive', { active: false }, original],
+    ['changes identity', { id: 10 }, 'parked'],
+    ['navigates elsewhere', { url: 'https://changed.test/' }, 'https://changed.test/'],
+    ['becomes pinned', { pinned: true }, original],
+    ['becomes audible', { audible: true }, original],
+    ['becomes discarded', { discarded: true }, original],
+    ['becomes protected', { autoDiscardable: false }, original],
+  ])(
+    'fails closed when the selected tab %s during current-action parking',
+    async (_label, updatedChanges, expectedUrl) => {
+      let current = tab(9, { active: true });
+      let getCalls = 0;
+      const tabs = {
+        async query() {
+          return [current];
+        },
+        async get() {
+          getCalls += 1;
+          return current;
+        },
+        async update(id: number, update: { url?: string }) {
+          if (update.url === original) {
+            current = { ...current, id, url: original };
+            return current;
+          }
+          current = { ...current, id, url: update.url, ...updatedChanges };
+          return current;
+        },
+        async discard() {
+          return current;
+        },
+      };
+      const coordinator = createParkingCoordinator(tabs, extensionPage);
+
+      await expect(suspendCurrentTabNow(tabs, coordinator)).resolves.toBe('failed');
+
+      if (expectedUrl === 'parked') {
+        expect(current.url).toMatch(/^chrome-extension:\/\/id\/suspended\/index\.html#/u);
+      } else {
+        expect(current.url).toBe(expectedUrl);
+      }
+      expect(getCalls).toBeGreaterThanOrEqual(1);
+    },
+  );
 
   it.each([
     ['pinned', { pinned: true }],
@@ -236,7 +358,7 @@ describe('immediate current-tab suspension', () => {
     const state = immediateHarness([tab(9, { active: true })], fresh);
 
     await expect(state.run()).resolves.toBe('failed');
-    expect(state.calls).not.toContain('park:9');
+    expect(state.calls).not.toContain('park-current:9');
   });
 
   it.each(['skipped', 'failed'] as const)(

@@ -21,6 +21,7 @@ export interface AlarmsAdapter {
 
 export interface ServiceWorkerDependencies extends SweepDependencies {
   alarms: AlarmsAdapter;
+  parkCurrent(tab: TabSnapshot): ReturnType<SweepDependencies['park']>;
   handleActivated(tabId: number): Promise<void>;
   handlePageReady(tabId: number, senderUrl: string): Promise<void>;
 }
@@ -141,7 +142,7 @@ export async function handleExtensionMessage(
   }
   if (message.type === 'suspendCurrentTab') {
     return {
-      currentTabAction: await suspendCurrentTabNow(dependencies.tabs, dependencies.park),
+      currentTabAction: await suspendCurrentTabNow(dependencies.tabs, dependencies),
     };
   }
   if (message.type === 'suspensionPageReady') {
@@ -268,6 +269,7 @@ function browserDependencies(browser: ExtensionChrome): ServiceWorkerDependencie
     hasTabsPermission: () =>
       browser.permissions?.contains({ permissions: ['tabs'] }) ?? Promise.resolve(false),
     park: (tab) => parking.park(tab),
+    parkCurrent: (tab) => parking.parkCurrent(tab),
     handleActivated: (tabId) => parking.handleActivated(tabId),
     handlePageReady: (tabId, senderUrl) => parking.handlePageReady(tabId, senderUrl),
   };

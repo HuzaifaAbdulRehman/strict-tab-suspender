@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createParkingCoordinator } from '../../src/background/suspension.js';
+import { createParkingCoordinator, suspendCurrentTabNow } from '../../src/background/suspension.js';
 import type { TabSnapshot } from '../../src/background/eligibility.js';
 
 const extensionPage = 'chrome-extension://id/suspended/index.html';
@@ -16,6 +16,7 @@ function tab(id: number, changes: Partial<TabSnapshot> = {}): TabSnapshot {
     autoDiscardable: true,
     lastAccessed: 1,
     url: original,
+    title: 'Private page',
     ...changes,
   };
 }
@@ -58,6 +59,8 @@ describe('click suspension coordinator', () => {
     await expect(state.coordinator.park(tab(7))).resolves.toBe('discarded');
 
     expect(state.calls[0]).toMatch(/^update:7:chrome-extension:\/\/id\/suspended\/index\.html#/u);
+    const parkedUrl = state.calls[0]!.slice('update:7:'.length);
+    expect(new URLSearchParams(new URL(parkedUrl).hash.slice(1)).get('title')).toBe('Private page');
     expect(state.calls).not.toContain('discard:7');
   });
 
@@ -149,4 +152,100 @@ describe('click suspension coordinator', () => {
 
     await expect(coordinator.park(tab(7))).resolves.toBe('failed');
   });
+});
+
+describe('immediate current-tab suspension', () => {
+  function immediateHarness(
+    queried: TabSnapshot[],
+    fresh: TabSnapshot | Error,
+    parkResult: 'discarded' | 'skipped' | 'failed' = 'discarded',
+  ) {
+    const calls: string[] = [];
+    return {
+      calls,
+      run: () =>
+        suspendCurrentTabNow(
+          {
+            async query() {
+              calls.push('query-active');
+              return queried;
+            },
+            async get(id) {
+              calls.push(`get:${id}`);
+              if (fresh instanceof Error) throw fresh;
+              return fresh;
+            },
+          },
+          async (value) => {
+            calls.push(`park:${value.id}`);
+            return parkResult;
+          },
+        ),
+    };
+  }
+
+  it('bypasses only active and recent exclusions after query and immediate re-fetch', async () => {
+    const current = tab(9, { active: true, lastAccessed: Date.now(), title: 'Fresh title' });
+    const state = immediateHarness([current], current);
+
+    await expect(state.run()).resolves.toBe('suspended');
+    expect(state.calls).toEqual(['query-active', 'get:9', 'park:9']);
+  });
+
+  it.each([
+    ['pinned', { pinned: true }],
+    ['audible', { audible: true }],
+    ['already discarded', { discarded: true }],
+    ['not auto-discardable', { autoDiscardable: false }],
+  ])('refuses a protected %s tab', async (_label, changes) => {
+    const queried = tab(9, { active: true });
+    const state = immediateHarness([queried], tab(9, { active: true, ...changes }));
+
+    await expect(state.run()).resolves.toBe('protected-tab');
+    expect(state.calls).toEqual(['query-active', 'get:9']);
+  });
+
+  it.each([
+    undefined,
+    '',
+    'chrome://settings',
+    'chrome-extension://id/options/index.html',
+    'file:///private',
+    'https://user:secret@example.test/',
+  ])('refuses an unsupported current-tab URL %s', async (url) => {
+    const queried = tab(9, { active: true });
+    const state = immediateHarness([queried], tab(9, { active: true, url }));
+
+    await expect(state.run()).resolves.toBe('unsupported-tab');
+    expect(state.calls).toEqual(['query-active', 'get:9']);
+  });
+
+  it('refuses an active query result without a tab ID', async () => {
+    const state = immediateHarness([tab(9, { id: undefined, active: true })], new Error('unused'));
+
+    await expect(state.run()).resolves.toBe('unsupported-tab');
+    expect(state.calls).toEqual(['query-active']);
+  });
+
+  it.each([
+    ['closed before re-fetch', new Error('closed')],
+    ['inactive before parking', tab(9, { active: false })],
+    ['navigated before parking', tab(9, { active: true, url: 'https://changed.test/' })],
+    ['wrong tab returned', tab(10, { active: true })],
+  ])('fails closed when the current tab is %s', async (_label, fresh) => {
+    const state = immediateHarness([tab(9, { active: true })], fresh);
+
+    await expect(state.run()).resolves.toBe('failed');
+    expect(state.calls).not.toContain('park:9');
+  });
+
+  it.each(['skipped', 'failed'] as const)(
+    'maps a race-safe parking %s to failed',
+    async (result) => {
+      const current = tab(9, { active: true });
+      const state = immediateHarness([current], current, result);
+
+      await expect(state.run()).resolves.toBe('failed');
+    },
+  );
 });

@@ -5,6 +5,7 @@ import type {
   ExtensionRequest,
   ExtensionResponse,
 } from '../shared/messages.js';
+import { returnFromSettings } from './settings-navigation.js';
 
 interface RuntimeApi {
   sendMessage(message: ExtensionRequest): Promise<ExtensionResponse>;
@@ -17,6 +18,7 @@ function byId<T extends HTMLElement>(id: string): T {
 }
 
 const form = byId<HTMLFormElement>('settings-form');
+const backAction = byId<HTMLButtonElement>('back-action');
 const saveButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
 const idleMinuteInputs = form.querySelectorAll<HTMLInputElement>('input[name="idleMinutes"]');
 const restoreBehaviorInputs = document.querySelectorAll<HTMLInputElement>(
@@ -64,6 +66,20 @@ const view: OptionsView = {
   },
 };
 const controller = createOptionsController(view, messenger);
+
+backAction.addEventListener('click', () => {
+  returnFromSettings({
+    close() {
+      globalThis.close();
+    },
+    navigateToPopup() {
+      globalThis.location.assign('../popup/index.html');
+    },
+    scheduleFallback(callback) {
+      globalThis.setTimeout(callback, 0);
+    },
+  });
+});
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();

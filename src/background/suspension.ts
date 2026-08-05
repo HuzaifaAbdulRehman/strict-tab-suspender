@@ -14,9 +14,70 @@ export interface ParkingCoordinator {
   handlePageReady(tabId: number, senderUrl: string): Promise<void>;
 }
 
+export type CurrentTabAction = 'suspended' | 'unsupported-tab' | 'protected-tab' | 'failed';
+
+export interface ImmediateSuspensionTabsAdapter {
+  query(queryInfo: { active: true; lastFocusedWindow: true }): Promise<TabSnapshot[]>;
+  get(tabId: number): Promise<TabSnapshot>;
+}
+
 interface PendingParking {
   originalUrl: string;
   cancelled: boolean;
+}
+
+function isSupportedOriginalUrl(value: string | undefined): value is string {
+  if (value === undefined) return false;
+  try {
+    const parsed = new URL(value);
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.username === '' &&
+      parsed.password === ''
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function suspendCurrentTabNow(
+  tabs: ImmediateSuspensionTabsAdapter,
+  park: (tab: TabSnapshot) => Promise<DiscardOutcome>,
+): Promise<CurrentTabAction> {
+  let queried: TabSnapshot;
+  try {
+    const activeTabs = await tabs.query({ active: true, lastFocusedWindow: true });
+    const candidate = activeTabs[0];
+    if (candidate?.id === undefined) return 'unsupported-tab';
+    queried = candidate;
+  } catch {
+    return 'failed';
+  }
+
+  let fresh: TabSnapshot;
+  try {
+    fresh = await tabs.get(queried.id!);
+  } catch {
+    return 'failed';
+  }
+
+  if (!isSupportedOriginalUrl(fresh.url)) return 'unsupported-tab';
+  if (fresh.id !== queried.id || fresh.active !== true || fresh.url !== queried.url)
+    return 'failed';
+  if (
+    fresh.pinned === true ||
+    fresh.audible === true ||
+    fresh.discarded === true ||
+    fresh.autoDiscardable === false
+  ) {
+    return 'protected-tab';
+  }
+
+  try {
+    return (await park(fresh)) === 'discarded' ? 'suspended' : 'failed';
+  } catch {
+    return 'failed';
+  }
 }
 
 export function createParkingCoordinator(
@@ -39,7 +100,7 @@ export function createParkingCoordinator(
   return {
     async park(tab) {
       if (tab.id === undefined || tab.url === undefined) return 'skipped';
-      const parkedUrl = buildSuspendedPageUrl(tab.url, extensionPageUrl);
+      const parkedUrl = buildSuspendedPageUrl(tab.url, tab.title ?? '', extensionPageUrl);
       if (parkedUrl === undefined) return 'skipped';
 
       const state: PendingParking = { originalUrl: tab.url, cancelled: false };

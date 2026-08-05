@@ -6,6 +6,22 @@ import { build } from 'esbuild';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDirectory = path.join(root, 'src');
 const outputDirectory = path.join(root, 'dist');
+const approvedTypeScriptEntryPoints = new Set([
+  'background/eligibility.ts',
+  'background/service-worker.ts',
+  'background/suspension.ts',
+  'background/sweep.ts',
+  'options/index.ts',
+  'options/options-controller.ts',
+  'options/settings-navigation.ts',
+  'popup/index.ts',
+  'popup/popup-controller.ts',
+  'shared/messages.ts',
+  'shared/settings.ts',
+  'shared/suspended-url.ts',
+  'suspended/index.ts',
+  'suspended/suspended-controller.ts',
+]);
 
 async function findTypeScriptFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -48,6 +64,19 @@ export async function buildExtension() {
   await mkdir(outputDirectory, { recursive: true });
   await copyStaticFiles(sourceDirectory, outputDirectory);
   const entryPoints = await findTypeScriptFiles(sourceDirectory);
+  const discoveredEntryPoints = new Set(
+    entryPoints.map((entry) => path.relative(sourceDirectory, entry).replaceAll('\\', '/')),
+  );
+  for (const entry of discoveredEntryPoints) {
+    if (!approvedTypeScriptEntryPoints.has(entry)) {
+      throw new Error(`Build contains an unapproved TypeScript entry point: ${entry}`);
+    }
+  }
+  for (const entry of approvedTypeScriptEntryPoints) {
+    if (!discoveredEntryPoints.has(entry)) {
+      throw new Error(`Build is missing an approved TypeScript entry point: ${entry}`);
+    }
+  }
 
   if (entryPoints.length > 0) {
     await build({

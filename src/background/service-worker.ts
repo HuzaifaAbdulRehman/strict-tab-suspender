@@ -8,7 +8,7 @@ import {
 import { STARTUP_GRACE_MS, runSweep, type SweepDependencies, type TabsAdapter } from './sweep.js';
 import type { TabSnapshot } from './eligibility.js';
 import type { ExtensionRequest, ExtensionResponse } from '../shared/messages.js';
-import { createParkingCoordinator } from './suspension.js';
+import { createParkingCoordinator, suspendCurrentTabNow } from './suspension.js';
 
 export const ALARM_NAME = 'strict-tab-discarder-sweep';
 export const ALARM_PERIOD_MINUTES = 1;
@@ -139,6 +139,11 @@ export async function handleExtensionMessage(
       },
     };
   }
+  if (message.type === 'suspendCurrentTab') {
+    return {
+      currentTabAction: await suspendCurrentTabNow(dependencies.tabs, dependencies.park),
+    };
+  }
   if (message.type === 'suspensionPageReady') {
     if (sender.tab?.id !== undefined && sender.url !== undefined) {
       await dependencies.handlePageReady(sender.tab.id, sender.url);
@@ -184,6 +189,7 @@ function isExtensionRequest(value: unknown): value is ExtensionRequest {
     candidate.type === 'pauseAutomation' ||
     candidate.type === 'resumeAutomation' ||
     candidate.type === 'resetSettings' ||
+    candidate.type === 'suspendCurrentTab' ||
     candidate.type === 'suspensionPageReady' ||
     (candidate.type === 'setRestoreBehavior' &&
       (candidate.restoreBehavior === 'native' || candidate.restoreBehavior === 'click')) ||

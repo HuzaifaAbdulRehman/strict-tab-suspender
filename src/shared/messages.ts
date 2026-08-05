@@ -8,6 +8,7 @@ export type ExtensionRequest =
   | { type: 'saveSettings'; idleMinutes: IdleMinutes }
   | { type: 'setRestoreBehavior'; restoreBehavior: RestoreBehavior }
   | { type: 'setCurrentTabProtection'; protected: boolean }
+  | { type: 'suspendCurrentTab' }
   | { type: 'suspensionPageReady' }
   | { type: 'resetSettings' };
 
@@ -16,6 +17,7 @@ export interface ExtensionResponse {
   summary?: unknown;
   tabsPermissionGranted?: boolean;
   currentTabProtection?: { supported: boolean; protected: boolean };
+  currentTabAction?: 'suspended' | 'unsupported-tab' | 'protected-tab' | 'failed';
   actionError?: 'tabs-permission-required' | 'unsupported-tab';
 }
 

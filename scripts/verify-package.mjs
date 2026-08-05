@@ -24,6 +24,7 @@ const expectedPackageEntries = new Set([
   'options/index.html',
   'options/index.js',
   'options/options-controller.js',
+  'options/settings-navigation.js',
   'options/styles.css',
   'popup/index.html',
   'popup/index.js',

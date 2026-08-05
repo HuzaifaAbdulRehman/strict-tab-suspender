@@ -9,6 +9,14 @@
   </head>
   <body>
     <main class="options-shell">
+      <button
+        id="back-action"
+        class="back-action secondary"
+        type="button"
+        aria-label="Back to extension popup"
+      >
+        <span aria-hidden="true">←</span> Back
+      </button>
       <header class="brand">
         <img src="../icons/icon-48.png" alt="" width="42" height="42" />
         <div>
@@ -58,14 +66,14 @@
           <legend id="restore-heading">How suspended tabs restore</legend>
           <div class="restore-grid">
             <label>
-              <input type="radio" name="restoreBehavior" value="native" checked disabled />
+              <input type="radio" name="restoreBehavior" value="native" disabled />
               <span
                 ><strong>Open normally</strong
                 ><small>Chrome reloads the page when you select its tab.</small></span
               >
             </label>
             <label>
-              <input type="radio" name="restoreBehavior" value="click" disabled />
+              <input type="radio" name="restoreBehavior" value="click" checked disabled />
               <span
                 ><strong>Click to restore</strong
                 ><small
@@ -78,12 +86,13 @@
         </fieldset>
         <div class="permission-disclosure" aria-label="Permission disclosure">
           <strong>Permission required for click to restore</strong>
-          <p>Chrome describes the optional permission as “Read your browsing history.”</p>
+          <p>Chrome describes the required tabs permission as “Read your browsing history.”</p>
           <p>
-            It lets this extension read the original address only when suspending that tab. The
-            address is percent-encoded in the local suspended page address so it survives a browser
-            restart. It is not encrypted and can appear in Chrome's address bar, session restore,
-            and history. It is not saved in extension storage or sent over the network.
+            It lets this extension read the original address and title only when suspending that
+            tab. Both are percent-encoded in the local suspended page address so they survive a
+            browser restart. It is not encrypted and can appear in Chrome's address bar, session
+            restore, and history. The original address and title are
+            <span>not saved in extension storage or sent over the network</span>.
           </p>
         </div>
       </section>
@@ -92,7 +101,7 @@
         <h2 id="privacy-heading">Privacy and limitations</h2>
         <p>
           Settings and only the latest aggregate sweep summary stay on this device. No URLs, titles,
-          tab IDs, page content, or browsing history are stored.
+          tab IDs, page content, or browsing history are saved in extension storage.
         </p>
         <p>
           Native-mode tabs reload when opened. Click-mode tabs wait for an explicit Restore tab
@@ -108,7 +117,7 @@
     </main>
     <dialog id="reset-dialog" aria-labelledby="reset-title">
       <h2 id="reset-title">Reset settings?</h2>
-      <p>This restores automatic discarding and the 15-minute default.</p>
+      <p>This restores automatic suspension, 15 minutes, and click-to-restore.</p>
       <div class="actions">
         <button id="confirm-reset" class="primary" type="button">Reset settings</button
         ><button id="cancel-reset" class="secondary" type="button">Cancel</button>

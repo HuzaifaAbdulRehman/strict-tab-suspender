@@ -121,6 +121,34 @@ describe('service worker scheduler', () => {
     expect(deps.calls).toContain('update:9:false');
   });
 
+  it('routes immediate current-tab suspension through fresh query, re-fetch, and parking', async () => {
+    const deps = dependencies();
+    const current = {
+      id: 9,
+      active: true,
+      pinned: false,
+      audible: false,
+      discarded: false,
+      autoDiscardable: true,
+      lastAccessed: now,
+      url: 'https://example.test/current',
+      title: 'Current page',
+    };
+    deps.tabs.query = async () => {
+      deps.calls.push('query-active');
+      return [current];
+    };
+    deps.tabs.get = async (id) => {
+      deps.calls.push(`get:${id}`);
+      return current;
+    };
+
+    await expect(handleExtensionMessage({ type: 'suspendCurrentTab' }, deps)).resolves.toEqual({
+      currentTabAction: 'suspended',
+    });
+    expect(deps.calls).toEqual(['query-active', 'get:9', 'park:9']);
+  });
+
   it('saves click restore behavior without an optional-permission check', async () => {
     const deps = dependencies();
     deps.hasTabsPermission = async () => false;

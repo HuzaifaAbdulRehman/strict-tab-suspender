@@ -16,6 +16,16 @@ body {
   gap: 18px;
   margin: 42px auto;
 }
+.back-action {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.back-action span {
+  font-size: 18px;
+  line-height: 1;
+}
 .brand {
   display: flex;
   align-items: center;

@@ -18,10 +18,19 @@ const packagePath = path.join(
   `strict-tab-suspender-${packageMetadata.version}.zip`,
 );
 
-export const EXPECTED_POPUP_FOCUS_ORDER = ['pause-action', 'discard-now', 'protect-tab', '', ''];
+export const EXPECTED_POPUP_FOCUS_ORDER = [
+  'pause-action',
+  'discard-now',
+  'suspend-current-tab',
+  'protect-tab',
+  '',
+  '',
+];
 
-export function buildSmokeSuspendedUrl(extensionId, originalUrl) {
-  return `chrome-extension://${extensionId}/suspended/index.html#v=1&url=${encodeURIComponent(originalUrl)}`;
+export function buildSmokeSuspendedUrl(extensionId, originalUrl, title) {
+  const page = new URL(`chrome-extension://${extensionId}/suspended/index.html`);
+  page.hash = new URLSearchParams({ v: '2', url: originalUrl, title }).toString();
+  return page.toString();
 }
 
 function chromeCandidates(environment = process.env) {
@@ -59,10 +68,25 @@ export async function extensionId(browser) {
   return new URL(worker.url()).host;
 }
 
+export async function waitForExtensionWorker(browser, extensionId) {
+  const workerTarget = await browser.waitForTarget(
+    (target) =>
+      target.type() === 'service_worker' &&
+      target.url().startsWith(`chrome-extension://${extensionId}/`),
+    { timeout: 10_000 },
+  );
+  const worker = await workerTarget.worker();
+  if (worker === null) throw new Error('Extension worker is unavailable.');
+  return worker;
+}
+
 async function startLocalPageServer() {
+  const expectedOriginalTitle = 'Local smoke page title';
   const server = createServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end('<!doctype html><title>Local smoke page</title><p id="restored">restored</p>');
+    response.end(
+      `<!doctype html><title>${expectedOriginalTitle}</title><p id="restored">restored</p>`,
+    );
   });
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -73,6 +97,7 @@ async function startLocalPageServer() {
     throw new Error('Local server did not start.');
   return {
     url: `http://127.0.0.1:${address.port}/page`,
+    expectedOriginalTitle,
     async close() {
       await new Promise((resolve, reject) =>
         server.close((error) => (error === undefined ? resolve() : reject(error))),
@@ -117,30 +142,8 @@ async function testExtension(extensionDirectory, label) {
     });
     const id = await extensionId(browser);
     const extensionOrigin = `chrome-extension://${id}`;
-    const workerTarget = browser
-      .targets()
-      .find(
-        (target) => target.type() === 'service_worker' && target.url().startsWith(extensionOrigin),
-      );
-    const worker = await workerTarget?.worker();
-    if (worker === null || worker === undefined)
-      throw new Error('Extension worker is unavailable.');
+    const worker = await waitForExtensionWorker(browser, id);
     const unexpectedRequests = [];
-
-    const suspended = await browser.newPage();
-    trackExtensionNetwork(suspended, extensionOrigin, unexpectedRequests);
-    await suspended.goto(buildSmokeSuspendedUrl(id, localPage.url));
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
-    if (!suspended.url().startsWith(`${extensionOrigin}/suspended/index.html#`)) {
-      throw new Error('Suspended page restored without an explicit action.');
-    }
-    await suspended.focus('#restore-tab');
-    await suspended.keyboard.press('Enter');
-    await suspended.waitForFunction(
-      () => document.getElementById('restored')?.textContent === 'restored',
-    );
-    if (suspended.url() !== localPage.url)
-      throw new Error('Restore did not open the original page.');
 
     const normalTab = await browser.newPage();
     trackExtensionNetwork(normalTab, extensionOrigin, unexpectedRequests);
@@ -200,6 +203,54 @@ async function testExtension(extensionDirectory, label) {
       throw new Error(`Unexpected popup keyboard order: ${focusOrder.join(',')}`);
     }
 
+    await activateTabForPopupAction(worker, normalTabId);
+    await popup.$eval('#suspend-current-tab', (button) => button.click());
+    await popup.waitForFunction(
+      () =>
+        document.getElementById('status')?.textContent !== 'Suspending this tabâ€¦' &&
+        !document.getElementById('suspend-current-tab')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
+    );
+    const suspensionStatus = await popup.$eval('#status', (status) => status.textContent);
+    if (suspensionStatus !== 'This tab is now suspended.') {
+      throw new Error(`Suspend this tab now failed: ${suspensionStatus}`);
+    }
+    const expectedSuspendedUrl = buildSmokeSuspendedUrl(
+      id,
+      localPage.url,
+      localPage.expectedOriginalTitle,
+    );
+    await normalTab.waitForFunction(
+      (expectedUrl) => globalThis.location.href === expectedUrl,
+      {},
+      expectedSuspendedUrl,
+    );
+    if (normalTab.url() !== expectedSuspendedUrl) {
+      throw new Error('Suspend this tab now parked a different tab or payload.');
+    }
+    const visibleOriginalUrl = await normalTab.$eval('#original-url', (link) => ({
+      text: link.textContent,
+      href: link.href,
+    }));
+    if (visibleOriginalUrl.text !== localPage.url || visibleOriginalUrl.href !== localPage.url) {
+      throw new Error('Suspended placeholder did not expose the complete original URL.');
+    }
+    if ((await normalTab.title()) !== localPage.expectedOriginalTitle) {
+      throw new Error('Suspended browser tab did not preserve the sanitized original title.');
+    }
+    await normalTab.bringToFront();
+    await normalTab.waitForFunction(() => document.hasFocus());
+    if (normalTab.url() !== expectedSuspendedUrl) {
+      throw new Error('Suspended page restored merely because it was activated.');
+    }
+    await normalTab.focus('#restore-tab');
+    await normalTab.keyboard.press('Enter');
+    await normalTab.waitForFunction(
+      () => document.getElementById('restored')?.textContent === 'restored',
+    );
+    if (normalTab.url() !== localPage.url)
+      throw new Error('Keyboard Restore did not open the original page.');
+
     await popup.click('#discard-now');
     await popup.waitForFunction(
       () =>
@@ -226,11 +277,11 @@ async function testExtension(extensionDirectory, label) {
     trackExtensionNetwork(options, extensionOrigin, unexpectedRequests);
     await options.goto(`${extensionOrigin}/options/index.html`);
     await options.waitForFunction(() => document.getElementById('state')?.textContent === 'On');
-    const nativeSelected = await options.$eval(
-      'input[name="restoreBehavior"][value="native"]',
+    const clickSelected = await options.$eval(
+      'input[name="restoreBehavior"][value="click"]',
       (input) => input.checked,
     );
-    if (!nativeSelected) throw new Error('Native restore must be selected by default.');
+    if (!clickSelected) throw new Error('Click to restore must be selected by default.');
     const optionsText = await options.$eval('body', (body) => body.textContent ?? '');
     if (!optionsText.includes('Read your browsing history')) {
       throw new Error('Options permission disclosure is missing.');
@@ -246,6 +297,24 @@ async function testExtension(extensionDirectory, label) {
     await options.waitForFunction(
       () => document.getElementById('status')?.textContent === 'Settings reset to defaults.',
     );
+
+    const backOptions = await browser.newPage();
+    await backOptions.evaluateOnNewDocument(() => {
+      globalThis.close = () => undefined;
+    });
+    trackExtensionNetwork(backOptions, extensionOrigin, unexpectedRequests);
+    await backOptions.goto(`${extensionOrigin}/options/index.html`);
+    await backOptions.waitForFunction(
+      () => !document.getElementById('back-action')?.hasAttribute('disabled'),
+    );
+    await backOptions.bringToFront();
+    await Promise.all([
+      backOptions.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+      backOptions.click('#back-action'),
+    ]);
+    if (backOptions.url() !== `${extensionOrigin}/popup/index.html`) {
+      throw new Error('Settings Back did not use the packaged popup fallback.');
+    }
 
     if (unexpectedRequests.length > 0) {
       throw new Error(

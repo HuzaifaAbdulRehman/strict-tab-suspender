@@ -26,8 +26,15 @@ describe('Chrome smoke command', () => {
     expect(smokeScript).toContain('browser.waitForTarget');
     expect(smokeScript).toContain('EXPECTED_POPUP_FOCUS_ORDER');
     expect(smokeScript).toContain("'protect-tab'");
+    expect(smokeScript).toContain("'suspend-current-tab'");
+    expect(smokeScript).toContain("'back-action'");
     expect(smokeScript).toContain('buildSmokeSuspendedUrl');
-    expect(smokeScript).toContain('suspended/index.html#v=1&url=');
+    expect(smokeScript).toContain('value="click"');
+    expect(smokeScript).toContain('expectedOriginalTitle');
+    expect(smokeScript).toContain('visibleOriginalUrl');
+    expect(smokeScript).toContain('original-url');
+    expect(smokeScript).toContain('waitForExtensionWorker');
+    expect(smokeScript).not.toContain('Native restore must be selected by default.');
     expect(smokeScript).toContain('Read your browsing history');
     expect(smokeScript).toContain('autoDiscardable');
     expect(smokeScript).not.toContain('setTimeout(resolve, 750)');

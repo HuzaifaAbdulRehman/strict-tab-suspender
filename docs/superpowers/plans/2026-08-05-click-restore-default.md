@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the packaged placeholder and explicit Restore action the default suspension behavior, add reliable Settings back navigation, and clarify that protected tabs are never suspended while protected.
+**Goal:** Make the recognizable packaged placeholder and explicit Restore action the default suspension behavior, add immediate safeguarded current-tab suspension, reliable Settings back navigation, and clear protection behavior.
 
 **Architecture:** Settings schema version 3 makes `click` the new persisted default while migrating older settings. The manifest makes `tabs` required so background sweeps can always build validated local placeholder URLs without a permission gesture. Options navigation uses a small injected helper that closes an extension-opened Settings tab and falls back to the packaged popup page without adding another Chrome permission.
 
@@ -14,7 +14,8 @@
 - Production remains TypeScript with vanilla HTML/CSS and zero runtime dependencies.
 - Required permissions are exactly `alarms`, `storage`, and `tabs`; no optional or host permissions.
 - `tabs` URL access remains limited to reviewed click-to-restore URL parking; `autoDiscardable` remains limited to per-tab protection.
-- No content scripts, History API, network requests, telemetry, remote code, accounts, ads, URL logs, or extension-storage URL database.
+- No content scripts, History API, network requests, telemetry, remote code, accounts, ads, URL/title logs, favicon retrieval, or extension-storage browsing database.
+- A validated URL and sanitized length-limited title may exist only inside that tab's percent-encoded packaged placeholder fragment and visible placeholder UI.
 - Preserve enabled/15-minute defaults, all timeout presets, startup grace, exclusions, revalidation, serial ten-outcome cap, and fail-closed races.
 
 ---
@@ -134,15 +135,23 @@ git add src/manifest.json scripts/verify-package.mjs src/options src/background/
 git commit -m "feat: require tabs for default restore"
 ```
 
-### Task 3: Add Settings Back Navigation and Clear Protection Copy
+### Task 3: Add Recognizable Placeholders, Immediate Suspension, Back Navigation, and Clear Protection Copy
 
 **Files:**
 - Create: `src/options/settings-navigation.ts`
 - Create: `tests/unit/settings-navigation.test.ts`
+- Modify: `src/shared/suspended-url.ts`
+- Modify: `tests/unit/suspended-url.test.ts`
+- Modify: `src/suspended/index.html`, `src/suspended/index.ts`, `src/suspended/suspended-controller.ts`, `src/suspended/styles.css`
+- Modify: `tests/unit/suspended-controller.test.ts`
+- Modify: `src/background/suspension.ts`, `src/background/service-worker.ts`
+- Modify: `tests/unit/suspension.test.ts`, `tests/unit/service-worker.test.ts`
+- Modify: `src/shared/messages.ts`
 - Modify: `src/options/index.html`
 - Modify: `src/options/index.ts`
 - Modify: `src/options/styles.css`
 - Modify: `src/popup/index.html`
+- Modify: `src/popup/index.ts`
 - Modify: `src/popup/popup-controller.ts`
 - Modify: `tests/unit/popup-controller.test.ts`
 - Modify: `tests/integration/ui-artifacts.test.ts`
@@ -151,6 +160,8 @@ git commit -m "feat: require tabs for default restore"
 
 **Interfaces:**
 - Produces: `returnFromSettings(port: SettingsNavigationPort): void`.
+- Produces: `SuspendedPayload { originalUrl: string; title: string }`, encoded by `buildSuspendedPageUrl(originalUrl, title, extensionPageUrl)` and decoded by `readSuspendedPayloadFromHash(hash)`.
+- Adds request `{ type: 'suspendCurrentTab' }` and response `currentTabAction?: 'suspended' | 'unsupported-tab' | 'protected-tab' | 'failed'`.
 
 ```ts
 export interface SettingsNavigationPort {
@@ -174,17 +185,21 @@ it('attempts close before scheduling the packaged popup fallback', () => {
 });
 ```
 
-Artifact tests must require `id="back-action"`, accessible Back text, click radio checked by default, reset copy mentioning click-to-restore, and the exact protection explanation: “This tab may become inactive, but it will never be suspended while protected.”
+Codec tests must use literal expected values to prove a Unicode URL/title round trip, reject unsafe URL schemes/credentials, strip control characters from titles, cap titles at 256 Unicode code points, fall back to `Suspended tab`, and retain the 65,536-character total placeholder limit. Controller tests must prove the decoded title and URL are passed to view methods that use `textContent` and a validated `href`, and that link/button restoration remains explicit.
+
+Worker tests must prove **Suspend this tab now** re-queries the active tab, bypasses only active/age exclusions, re-fetches before parking, and refuses pinned, audible, `autoDiscardable=false`, unsupported URL, missing ID, closed, or changed tabs. Artifact tests must require `id="back-action"`, `id="suspend-current-tab"`, accessible Back text, click radio checked by default, reset copy mentioning click-to-restore, and the exact protection explanation: “This tab may become inactive, but it will never be suspended while protected.”
 
 - [ ] **Step 2: Run focused tests and confirm RED**
 
-Run: `npx vitest run tests/unit/settings-navigation.test.ts tests/unit/popup-controller.test.ts tests/integration/ui-artifacts.test.ts`
+Run: `npx vitest run tests/unit/settings-navigation.test.ts tests/unit/suspended-url.test.ts tests/unit/suspended-controller.test.ts tests/unit/suspension.test.ts tests/unit/service-worker.test.ts tests/unit/popup-controller.test.ts tests/integration/ui-artifacts.test.ts`
 
 Expected: missing navigation module/control and old copy fail.
 
 - [ ] **Step 3: Implement navigation and UI behavior**
 
-Add a semantic Back button before the brand header. Wire it to `returnFromSettings` with `window.close()`, `setTimeout(..., 0)`, and fallback `window.location.assign('../popup/index.html')`. Style the control for light/dark modes and visible focus. Change static restore selection to click, update reset/disclosure copy for required permission, and clarify protection in popup and options copy.
+Extend the placeholder fragment to version 2 with the validated original URL and sanitized title. Render the title into `document.title` using `textContent` semantics and render the complete URL as visible link text with a validated `href`; never use `innerHTML`. Clicking either URL or Restore button calls the same explicit restore path.
+
+Add `suspendCurrentTab` handling through popup/controller/worker. Re-query and immediately re-fetch the current tab, bypass active/age only, apply every other protection, then call the existing race-safe parking coordinator. Add a semantic Back button before the brand header. Wire it to `returnFromSettings` with `window.close()`, `setTimeout(..., 0)`, and fallback `window.location.assign('../popup/index.html')`. Style controls for light/dark modes and visible focus. Change static restore selection to click, update reset/disclosure copy for required permission, and clarify protection in popup and options copy.
 
 - [ ] **Step 4: Add the new module to reviewed build/package allowlists**
 
@@ -192,7 +207,7 @@ Bundle `options/settings-navigation.ts` to `options/settings-navigation.js`, inc
 
 - [ ] **Step 5: Run focused tests and commit**
 
-Run: `npx vitest run tests/unit/settings-navigation.test.ts tests/unit/popup-controller.test.ts tests/integration/ui-artifacts.test.ts tests/unit/verify-package.test.ts`
+Run: `npx vitest run tests/unit/settings-navigation.test.ts tests/unit/suspended-url.test.ts tests/unit/suspended-controller.test.ts tests/unit/suspension.test.ts tests/unit/service-worker.test.ts tests/unit/popup-controller.test.ts tests/integration/ui-artifacts.test.ts tests/unit/verify-package.test.ts`
 
 Expected: all focused tests pass.
 
@@ -209,11 +224,12 @@ git commit -m "feat: add settings back navigation"
 
 **Interfaces:**
 - Chrome smoke expects click-to-restore selected by default.
+- Chrome smoke proves the placeholder shows the sanitized original title and complete URL and that **Suspend this tab now** parks the intended active tab.
 - Chrome smoke exercises the Back fallback without depending on animation-frame polling in a background tab.
 
 - [ ] **Step 1: Write the failing smoke contract assertions**
 
-Update the smoke test source contract to require `value="click"` as the initial checked behavior and `back-action` coverage, and remove the native-default assertion.
+Update the smoke test source contract to require `value="click"` as the initial checked behavior, `back-action`, `suspend-current-tab`, visible original-title/URL assertions, and remove the native-default assertion.
 
 - [ ] **Step 2: Run the smoke unit test and confirm RED**
 
@@ -223,7 +239,7 @@ Expected: current script still asserts native is selected.
 
 - [ ] **Step 3: Update the Puppeteer workflow**
 
-Assert the click radio is selected on first load. Test Back using a controlled fallback page so closing behavior does not lose the remaining smoke sequence. Preserve the explicit two-second no-auto-restore assertion, keyboard Restore, real `autoDiscardable` toggles, mutation polling for background popup state, no-network tracking, and both unpacked/package runs.
+Assert the click radio is selected on first load. Suspend a safe local active page through the popup action and verify its original title becomes the browser tab title, its complete URL is visible/clickable, and activation alone does not restore it. Test Back using a controlled fallback page so closing behavior does not lose the remaining smoke sequence. Preserve keyboard Restore, real `autoDiscardable` toggles, mutation polling for background popup state, no-network tracking, and both unpacked/package runs.
 
 - [ ] **Step 4: Run Chrome smoke and commit**
 
@@ -250,7 +266,7 @@ git commit -m "test: verify click restore defaults"
 
 - [ ] **Step 1: Write failing tooling/documentation assertions**
 
-Require policy documents to state required `tabs`, click default, local placeholder URL handling, Chrome warning, protected-tab semantics, migration/re-enable behavior, and prohibition on History API/network/URL logs.
+Require policy documents to state required `tabs`, click default, local placeholder URL/title handling and visibility, Chrome warning, immediate-current-tab safeguards, protected-tab semantics, migration/re-enable behavior, and prohibition on History API/network/URL-title logs.
 
 - [ ] **Step 2: Run tooling tests and confirm RED**
 
@@ -260,7 +276,7 @@ Expected: old optional-permission and 0.2.0 wording fails.
 
 - [ ] **Step 3: Write ADR 0003 and update policy/product/release documents**
 
-ADR 0003 supersedes ADR 0002 only for optionality/default/migration. It records the owner's explicit approval, required warning, narrow URL use, placeholder visibility, no encryption claim, no History API, no transmission, no browsing log, no host access, and rollback to 0.2.0.
+ADR 0003 supersedes ADR 0002 only for optionality/default/migration and reviewed visible title/URL context. It records the owner's explicit approval, required warning, narrow URL/title use, placeholder visibility, sanitization/bounds, immediate-suspension safeguards, no encryption claim, no History API, no transmission, no browsing log, no host access, and rollback to 0.2.0.
 
 - [ ] **Step 4: Bump version without creating a Git tag**
 
@@ -293,6 +309,8 @@ Do not publish, tag, merge, delete a branch, or create a Web Store submission wi
 - [ ] Default, reset and v1/v2 migration select click-to-restore under schema 3.
 - [ ] Explicit schema 3 native choice remains supported.
 - [ ] Required manifest permissions are exactly `alarms`, `storage`, `tabs`; optional and host permissions are absent.
+- [ ] Placeholder shows a sanitized original title and complete validated URL without network access or extension-storage persistence.
+- [ ] **Suspend this tab now** bypasses only active/age exclusions and preserves every other protection and revalidation rule.
 - [ ] Settings Back works by close-first/fallback navigation and is keyboard accessible.
 - [ ] Protection copy distinguishes inactivity from suspension.
 - [ ] No URL/title/domain/tab data is logged, transmitted, or stored in extension storage.

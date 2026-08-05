@@ -24,6 +24,7 @@ const approvedEntries = [
   'options/index.html',
   'options/index.js',
   'options/options-controller.js',
+  'options/settings-navigation.js',
   'options/styles.css',
   'popup/index.html',
   'popup/index.js',
@@ -74,14 +75,14 @@ async function writePackageWithManifest(manifest: Record<string, unknown>): Prom
 }
 
 describe('listPackageEntries', () => {
-  it('rejects optional permissions beyond the reviewed tabs permission', () => {
+  it('rejects any optional permissions', () => {
     expect(() =>
       validatePackageManifest({
         manifest_version: 3,
-        permissions: ['alarms', 'storage'],
-        optional_permissions: ['tabs', 'history'],
+        permissions: ['alarms', 'storage', 'tabs'],
+        optional_permissions: ['tabs'],
       }),
-    ).toThrow('Package optional permissions must be exactly tabs.');
+    ).toThrow('Package manifest must not declare optional permissions.');
   });
   it('rejects an archive entry outside the extension build output', () => {
     expect(() => listPackageEntries(['manifest.json', '../README.md'])).toThrow(
@@ -119,8 +120,7 @@ describe('listPackageEntries', () => {
     expect(() =>
       validatePackageManifest({
         manifest_version: 3,
-        permissions: ['alarms', 'storage'],
-        optional_permissions: ['tabs'],
+        permissions: ['alarms', 'storage', 'tabs'],
         host_permissions: ['https://example.test/*'],
       }),
     ).toThrow('Package manifest must not declare host permissions.');
@@ -129,8 +129,7 @@ describe('listPackageEntries', () => {
   it('rejects a ZIP whose packaged manifest weakens the extension-page CSP', async () => {
     const archivePath = await writePackageWithManifest({
       manifest_version: 3,
-      permissions: ['alarms', 'storage'],
-      optional_permissions: ['tabs'],
+      permissions: ['alarms', 'storage', 'tabs'],
       content_security_policy: {
         extension_pages:
           "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src https:",

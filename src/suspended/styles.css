@@ -49,6 +49,12 @@ h1 {
   color: #cbd5e1;
   line-height: 1.65;
 }
+.original-url {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #93c5fd;
+  line-height: 1.5;
+}
 
 button {
   margin-top: 1.25rem;
@@ -65,7 +71,8 @@ button {
 button:hover {
   background: #93c5fd;
 }
-button:focus-visible {
+button:focus-visible,
+.original-url:focus-visible {
   outline: 3px solid #f8fafc;
   outline-offset: 4px;
 }

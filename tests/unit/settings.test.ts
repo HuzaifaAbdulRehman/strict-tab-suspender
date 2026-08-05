@@ -27,29 +27,74 @@ describe('settings', () => {
   it('uses the documented defaults when no settings have been saved', async () => {
     const storage = storageWith();
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
     });
     expect(DEFAULT_SETTINGS).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
     });
   });
 
-  it('migrates valid v1 settings to native restore behavior', async () => {
+  it('migrates valid v1 settings to click restore behavior', async () => {
     const storage = storageWith({
       settings: { schemaVersion: 1, enabled: false, idleMinutes: 60 },
     });
 
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: false,
       idleMinutes: 60,
+      restoreBehavior: 'click',
+    });
+  });
+
+  it('migrates valid v2 settings to click restore behavior', async () => {
+    const storage = storageWith({
+      settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
+    });
+
+    await expect(getSettings(storage)).resolves.toEqual({
+      schemaVersion: 3,
+      enabled: false,
+      idleMinutes: 60,
+      restoreBehavior: 'click',
+    });
+  });
+
+  it('preserves an explicit native restore behavior in valid v3 settings', async () => {
+    const storage = storageWith({
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 30, restoreBehavior: 'native' },
+    });
+
+    await expect(getSettings(storage)).resolves.toEqual({
+      schemaVersion: 3,
+      enabled: true,
+      idleMinutes: 30,
       restoreBehavior: 'native',
+    });
+  });
+
+  it('preserves an explicit click restore behavior in valid v3 settings', async () => {
+    const storage = storageWith({
+      settings: {
+        schemaVersion: 3,
+        enabled: false,
+        idleMinutes: 120,
+        restoreBehavior: 'click',
+        title: 'must not persist',
+      },
+    });
+
+    await expect(getSettings(storage)).resolves.toEqual({
+      schemaVersion: 3,
+      enabled: false,
+      idleMinutes: 120,
+      restoreBehavior: 'click',
     });
   });
 
@@ -69,10 +114,10 @@ describe('settings', () => {
 
     expect(storage.data).toEqual({
       settings: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         enabled: true,
         idleMinutes: 60,
-        restoreBehavior: 'native',
+        restoreBehavior: 'click',
       },
     });
   });
@@ -107,14 +152,14 @@ describe('settings', () => {
     releaseWrites();
 
     await expect(saves).resolves.toEqual([
-      { schemaVersion: 2, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
-      { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
+      { schemaVersion: 3, enabled: false, idleMinutes: 15, restoreBehavior: 'click' },
+      { schemaVersion: 3, enabled: false, idleMinutes: 60, restoreBehavior: 'click' },
     ]);
     expect(data.settings).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: false,
       idleMinutes: 60,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
     });
   });
 
@@ -133,10 +178,10 @@ describe('settings', () => {
     });
 
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: false,
       idleMinutes: 15,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
     });
   });
 
@@ -151,10 +196,10 @@ describe('settings', () => {
     });
 
     await expect(getSettings(storage)).resolves.toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 30,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
     });
   });
 
@@ -191,14 +236,14 @@ describe('settings', () => {
     releaseFirstWrite();
 
     await expect(Promise.all([save, reset])).resolves.toEqual([
-      { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
-      { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      { schemaVersion: 3, enabled: false, idleMinutes: 60, restoreBehavior: 'click' },
+      { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
     ]);
     expect(data.settings).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
     });
   });
 
@@ -211,10 +256,10 @@ describe('settings', () => {
 
     expect(storage.data).toEqual({
       settings: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         enabled: true,
         idleMinutes: 15,
-        restoreBehavior: 'native',
+        restoreBehavior: 'click',
       },
     });
   });

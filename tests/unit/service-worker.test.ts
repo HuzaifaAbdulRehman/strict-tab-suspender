@@ -19,7 +19,7 @@ function storageWith(
   enabled = true,
 ): LocalStorageArea & { data: Record<string, unknown>; writes: Record<string, unknown>[] } {
   const data: Record<string, unknown> = {
-    settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
+    settings: { schemaVersion: 3, enabled, idleMinutes: 15, restoreBehavior: 'native' },
   };
   const writes: Record<string, unknown>[] = [];
   return {
@@ -50,6 +50,10 @@ function dependencies(
     },
     async park(tab) {
       calls.push(`park:${tab.id}`);
+      return 'discarded';
+    },
+    async parkCurrent(tab) {
+      calls.push(`park-current:${tab.id}`);
       return 'discarded';
     },
     async handleActivated(tabId) {
@@ -100,7 +104,7 @@ function dependencies(
 }
 
 describe('service worker scheduler', () => {
-  it('reports optional permission and current-tab protection state', async () => {
+  it('reports tabs permission and current-tab protection state', async () => {
     const deps = dependencies();
 
     await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toMatchObject({
@@ -121,16 +125,44 @@ describe('service worker scheduler', () => {
     expect(deps.calls).toContain('update:9:false');
   });
 
-  it('does not enable click restore when optional tabs permission is absent', async () => {
+  it('routes immediate current-tab suspension through fresh query, re-fetch, and parking', async () => {
+    const deps = dependencies();
+    const current = {
+      id: 9,
+      active: true,
+      pinned: false,
+      audible: false,
+      discarded: false,
+      autoDiscardable: true,
+      lastAccessed: now,
+      url: 'https://example.test/current',
+      title: 'Current page',
+    };
+    deps.tabs.query = async () => {
+      deps.calls.push('query-active');
+      return [current];
+    };
+    deps.tabs.get = async (id) => {
+      deps.calls.push(`get:${id}`);
+      return current;
+    };
+
+    await expect(handleExtensionMessage({ type: 'suspendCurrentTab' }, deps)).resolves.toEqual({
+      currentTabAction: 'suspended',
+    });
+    expect(deps.calls).toEqual(['query-active', 'get:9', 'park-current:9']);
+  });
+
+  it('saves click restore behavior without an optional-permission check', async () => {
     const deps = dependencies();
     deps.hasTabsPermission = async () => false;
 
     await expect(
       handleExtensionMessage({ type: 'setRestoreBehavior', restoreBehavior: 'click' }, deps),
-    ).resolves.toMatchObject({
-      actionError: 'tabs-permission-required',
-      settings: { restoreBehavior: 'native' },
+    ).resolves.toEqual({
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
     });
+    expect(deps.calls).not.toContain('permission');
   });
 
   it('accepts page readiness only with an explicit sender tab and URL', async () => {
@@ -149,7 +181,7 @@ describe('service worker scheduler', () => {
     const deps = dependencies();
 
     await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
       tabsPermissionGranted: true,
       currentTabProtection: { supported: true, protected: false },
     });
@@ -163,18 +195,18 @@ describe('service worker scheduler', () => {
       },
     });
     await expect(handleExtensionMessage({ type: 'pauseAutomation' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await expect(
       handleExtensionMessage({ type: 'saveSettings', idleMinutes: 60 }, deps),
     ).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
     });
     await expect(handleExtensionMessage({ type: 'resetSettings' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
     });
     expect(deps.storage.data).toEqual({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
       latestSweepSummary: {
         checkedAt: now,
         evaluatedCount: 0,
@@ -235,7 +267,7 @@ describe('service worker scheduler', () => {
     expect(deps.storage.writes).toEqual([
       {
         settings: {
-          schemaVersion: 2,
+          schemaVersion: 3,
           enabled: false,
           idleMinutes: 15,
           restoreBehavior: 'native',
@@ -243,7 +275,7 @@ describe('service worker scheduler', () => {
       },
       {
         settings: {
-          schemaVersion: 2,
+          schemaVersion: 3,
           enabled: true,
           idleMinutes: 15,
           restoreBehavior: 'native',

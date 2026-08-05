@@ -8,7 +8,7 @@ import {
 import { STARTUP_GRACE_MS, runSweep, type SweepDependencies, type TabsAdapter } from './sweep.js';
 import type { TabSnapshot } from './eligibility.js';
 import type { ExtensionRequest, ExtensionResponse } from '../shared/messages.js';
-import { createParkingCoordinator } from './suspension.js';
+import { createParkingCoordinator, suspendCurrentTabNow } from './suspension.js';
 
 export const ALARM_NAME = 'strict-tab-discarder-sweep';
 export const ALARM_PERIOD_MINUTES = 1;
@@ -21,6 +21,7 @@ export interface AlarmsAdapter {
 
 export interface ServiceWorkerDependencies extends SweepDependencies {
   alarms: AlarmsAdapter;
+  parkCurrent(tab: TabSnapshot): ReturnType<SweepDependencies['park']>;
   handleActivated(tabId: number): Promise<void>;
   handlePageReady(tabId: number, senderUrl: string): Promise<void>;
 }
@@ -114,21 +115,11 @@ export async function handleExtensionMessage(
     return { settings };
   }
   if (message.type === 'setRestoreBehavior') {
-    if (message.restoreBehavior === 'click' && !(await dependencies.hasTabsPermission())) {
-      return {
-        settings: await getSettings(dependencies.storage),
-        tabsPermissionGranted: false,
-        actionError: 'tabs-permission-required',
-      };
-    }
     const settings = await saveSettings(
       { restoreBehavior: message.restoreBehavior },
       dependencies.storage,
     );
-    return {
-      settings,
-      tabsPermissionGranted: await dependencies.hasTabsPermission(),
-    };
+    return { settings };
   }
   if (message.type === 'setCurrentTabProtection') {
     const activeTabs = await dependencies.tabs.query({ active: true, lastFocusedWindow: true });
@@ -147,6 +138,11 @@ export async function handleExtensionMessage(
         supported: typeof updated.autoDiscardable === 'boolean',
         protected: updated.autoDiscardable === false,
       },
+    };
+  }
+  if (message.type === 'suspendCurrentTab') {
+    return {
+      currentTabAction: await suspendCurrentTabNow(dependencies.tabs, dependencies),
     };
   }
   if (message.type === 'suspensionPageReady') {
@@ -194,6 +190,7 @@ function isExtensionRequest(value: unknown): value is ExtensionRequest {
     candidate.type === 'pauseAutomation' ||
     candidate.type === 'resumeAutomation' ||
     candidate.type === 'resetSettings' ||
+    candidate.type === 'suspendCurrentTab' ||
     candidate.type === 'suspensionPageReady' ||
     (candidate.type === 'setRestoreBehavior' &&
       (candidate.restoreBehavior === 'native' || candidate.restoreBehavior === 'click')) ||
@@ -272,6 +269,7 @@ function browserDependencies(browser: ExtensionChrome): ServiceWorkerDependencie
     hasTabsPermission: () =>
       browser.permissions?.contains({ permissions: ['tabs'] }) ?? Promise.resolve(false),
     park: (tab) => parking.park(tab),
+    parkCurrent: (tab) => parking.parkCurrent(tab),
     handleActivated: (tabId) => parking.handleActivated(tabId),
     handlePageReady: (tabId, senderUrl) => parking.handlePageReady(tabId, senderUrl),
   };

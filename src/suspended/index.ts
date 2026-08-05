@@ -11,8 +11,14 @@ function byId<T extends HTMLElement>(id: string): T {
 }
 
 const restoreButton = byId<HTMLButtonElement>('restore-tab');
+const originalUrl = byId<HTMLAnchorElement>('original-url');
 const status = byId<HTMLParagraphElement>('status');
 const view: SuspendedView = {
+  setPayload(payload) {
+    document.title = payload.title;
+    originalUrl.textContent = payload.originalUrl;
+    originalUrl.href = payload.originalUrl;
+  },
   setStatus(message) {
     status.textContent = message;
   },
@@ -39,4 +45,8 @@ const controller = createSuspendedController(
 );
 
 restoreButton.addEventListener('click', () => void controller.restore());
+originalUrl.addEventListener('click', (event) => {
+  event.preventDefault();
+  void controller.restore();
+});
 void controller.load();

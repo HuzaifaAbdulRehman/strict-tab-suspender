@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-05
+
+### Added
+
+- Recognizable packaged placeholders that use a sanitized bounded original title in the tab strip and show the complete validated original URL as an explicit restore link.
+- Safeguarded **Suspend this tab now** and Settings Back controls.
+
+### Changed
+
+- Made click-to-restore the default and reset behavior under settings schema 3; valid v1/v2 settings migrate to click restore while explicit schema-3 native choices remain supported.
+- Made `tabs` required so automatic suspension can always create the reviewed placeholder. Existing installations may require re-enabling and accepting Chrome's permission warning.
+- Clarified that per-tab protection permits inactivity but prevents suspension until explicitly allowed or closed.
+
+### Security
+
+- Limited URL/title data to one validated credential-free HTTP(S) URL and sanitized bounded title in that tab's percent-encoded packaged placeholder fragment and visible UI.
+- Kept pinned, audible, already-discarded, protected, supported-URL, exact-ID, revalidation, pending-navigation, and race safeguards for immediate suspension.
+- Continued to prohibit optional/host permissions, History API use, content scripts, network access, remote code, telemetry, accounts, ads, remote configuration, and URL/title logs or storage.
+
 ## [0.2.0] - 2026-08-05
 
 ### Added

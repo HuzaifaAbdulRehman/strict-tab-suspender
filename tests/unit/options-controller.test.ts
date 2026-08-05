@@ -35,75 +35,27 @@ function view(): OptionsView & { values: Record<string, string>; busy: boolean }
 }
 
 describe('options controller', () => {
-  it('requests tabs permission before saving click behavior', async () => {
+  it('saves native restore behavior without a permissions adapter', async () => {
     const options = view();
-    const calls: unknown[] = [];
-    const controller = createOptionsController(
-      options,
-      {
-        async sendMessage(message) {
-          calls.push(['message', message]);
-          return {
-            settings: {
-              schemaVersion: 2,
-              enabled: true,
-              idleMinutes: 15,
-              restoreBehavior: 'click',
-            },
-          };
-        },
+    const sent: unknown[] = [];
+    const controller = createOptionsController(options, {
+      async sendMessage(message) {
+        sent.push(message);
+        return {
+          settings: {
+            schemaVersion: 3,
+            enabled: true,
+            idleMinutes: 15,
+            restoreBehavior: 'native',
+          },
+        };
       },
-      {
-        async contains() {
-          return false;
-        },
-        async request(request) {
-          calls.push(['request', request]);
-          return true;
-        },
-        async remove() {
-          return true;
-        },
-      },
-    );
+    });
 
-    await controller.setRestoreBehavior('click');
+    await controller.setRestoreBehavior('native');
 
-    expect(calls).toEqual([
-      ['request', { permissions: ['tabs'] }],
-      ['message', { type: 'setRestoreBehavior', restoreBehavior: 'click' }],
-    ]);
-    expect(options.values.restoreBehavior).toBe('click');
-  });
-
-  it('leaves native behavior selected when permission is denied', async () => {
-    const options = view();
-    const controller = createOptionsController(
-      options,
-      {
-        async sendMessage() {
-          throw new Error('not reached');
-        },
-      },
-      {
-        async contains() {
-          return false;
-        },
-        async request() {
-          return false;
-        },
-        async remove() {
-          return true;
-        },
-      },
-    );
-
-    await controller.setRestoreBehavior('click');
-
-    expect(options.values.restoreBehavior).toBe('native');
-    expect(options.values.status).toBe(
-      'Permission was not granted. Restore behavior was not changed.',
-    );
+    expect(sent).toEqual([{ type: 'setRestoreBehavior', restoreBehavior: 'native' }]);
+    expect(options.values.status).toBe('Open-normally behavior saved locally.');
   });
 
   it('loads the documented preset and local-only safety guidance', async () => {
@@ -112,7 +64,7 @@ describe('options controller', () => {
       async sendMessage() {
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: false,
             idleMinutes: 60,
             restoreBehavior: 'native',
@@ -143,8 +95,8 @@ describe('options controller', () => {
         return {
           settings:
             message.type === 'resetSettings'
-              ? { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' }
-              : { schemaVersion: 2, enabled: true, idleMinutes: 120, restoreBehavior: 'native' },
+              ? { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' }
+              : { schemaVersion: 3, enabled: true, idleMinutes: 120, restoreBehavior: 'native' },
         };
       },
     });
@@ -164,7 +116,7 @@ describe('options controller', () => {
     const options = view();
     const initialState = deferred<{
       settings: {
-        schemaVersion: 2;
+        schemaVersion: 3;
         enabled: boolean;
         idleMinutes: 15;
         restoreBehavior: 'native';
@@ -175,7 +127,7 @@ describe('options controller', () => {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: true,
             idleMinutes: 120,
             restoreBehavior: 'native',
@@ -188,7 +140,7 @@ describe('options controller', () => {
     expect(options.busy).toBe(true);
     await controller.save(120);
     initialState.resolve({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await loading;
 
@@ -204,7 +156,7 @@ describe('options controller', () => {
     const options = view();
     const initialState = deferred<{
       settings: {
-        schemaVersion: 2;
+        schemaVersion: 3;
         enabled: boolean;
         idleMinutes: 120;
         restoreBehavior: 'native';
@@ -214,7 +166,7 @@ describe('options controller', () => {
       async sendMessage(message) {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
-          settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+          settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
         };
       },
     });
@@ -222,7 +174,7 @@ describe('options controller', () => {
     const loading = controller.load();
     await controller.reset();
     initialState.resolve({
-      settings: { schemaVersion: 2, enabled: false, idleMinutes: 120, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: false, idleMinutes: 120, restoreBehavior: 'native' },
     });
     await loading;
 

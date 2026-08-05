@@ -24,6 +24,8 @@ export interface TabSnapshot {
   autoDiscardable?: boolean;
   lastAccessed?: number | undefined;
   url?: string | undefined;
+  pendingUrl?: string | undefined;
+  title?: string | undefined;
 }
 
 export interface EligibilityOptions {

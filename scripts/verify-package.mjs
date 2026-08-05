@@ -24,6 +24,7 @@ const expectedPackageEntries = new Set([
   'options/index.html',
   'options/index.js',
   'options/options-controller.js',
+  'options/settings-navigation.js',
   'options/styles.css',
   'popup/index.html',
   'popup/index.js',
@@ -37,8 +38,7 @@ const expectedPackageEntries = new Set([
   'suspended/styles.css',
   'suspended/suspended-controller.js',
 ]);
-const expectedPermissions = ['alarms', 'storage'];
-const expectedOptionalPermissions = ['tabs'];
+const expectedPermissions = ['alarms', 'storage', 'tabs'];
 const expectedExtensionPageCsp =
   "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src 'none'";
 
@@ -47,7 +47,7 @@ export function validatePackageManifest(manifest) {
     throw new Error('Package manifest must use Manifest V3.');
   }
   if (JSON.stringify(manifest.permissions) !== JSON.stringify(expectedPermissions)) {
-    throw new Error('Package manifest permissions must be exactly alarms and storage.');
+    throw new Error('Package manifest permissions must be exactly alarms, storage, and tabs.');
   }
   if (manifest.host_permissions !== undefined) {
     throw new Error('Package manifest must not declare host permissions.');
@@ -55,10 +55,8 @@ export function validatePackageManifest(manifest) {
   if (manifest.content_scripts !== undefined) {
     throw new Error('Package manifest must not declare content scripts.');
   }
-  if (
-    JSON.stringify(manifest.optional_permissions) !== JSON.stringify(expectedOptionalPermissions)
-  ) {
-    throw new Error('Package optional permissions must be exactly tabs.');
+  if (manifest.optional_permissions !== undefined) {
+    throw new Error('Package manifest must not declare optional permissions.');
   }
   if (manifest.optional_host_permissions !== undefined) {
     throw new Error('Package manifest must not declare optional host permissions.');

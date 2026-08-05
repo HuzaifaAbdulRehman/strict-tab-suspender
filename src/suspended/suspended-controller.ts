@@ -1,6 +1,7 @@
-import { readOriginalUrlFromHash } from '../shared/suspended-url.js';
+import { readSuspendedPayloadFromHash, type SuspendedPayload } from '../shared/suspended-url.js';
 
 export interface SuspendedView {
+  setPayload(payload: SuspendedPayload): void;
   setStatus(message: string): void;
   focusRestore(): void;
 }
@@ -22,6 +23,13 @@ export function createSuspendedController(
 ): SuspendedController {
   return {
     async load() {
+      const payload = readSuspendedPayloadFromHash(location.hash);
+      if (payload === undefined) {
+        view.setStatus('This suspended address is invalid and was not opened.');
+        view.focusRestore();
+        return;
+      }
+      view.setPayload(payload);
       try {
         await notifyReady();
       } catch {
@@ -30,12 +38,12 @@ export function createSuspendedController(
       view.focusRestore();
     },
     async restore() {
-      const originalUrl = readOriginalUrlFromHash(location.hash);
-      if (originalUrl === undefined) {
+      const payload = readSuspendedPayloadFromHash(location.hash);
+      if (payload === undefined) {
         view.setStatus('This suspended address is invalid and was not opened.');
         return;
       }
-      location.replace(originalUrl);
+      location.replace(payload.originalUrl);
     },
   };
 }

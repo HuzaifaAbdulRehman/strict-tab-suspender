@@ -28,6 +28,7 @@ function messenger(): ExtensionMessenger {
 }
 
 const discardNow = byId<HTMLButtonElement>('discard-now');
+const suspendCurrentTab = byId<HTMLButtonElement>('suspend-current-tab');
 const pauseAction = byId<HTMLButtonElement>('pause-action');
 const protectionAction = byId<HTMLButtonElement>('protect-tab');
 let busy = true;
@@ -35,6 +36,7 @@ let protectionAvailable = false;
 
 function syncDisabledState(): void {
   discardNow.disabled = busy;
+  suspendCurrentTab.disabled = busy;
   pauseAction.disabled = busy;
   protectionAction.disabled = busy || !protectionAvailable;
 }
@@ -68,6 +70,7 @@ const controller = createPopupController(view, messenger(), {
 });
 
 discardNow.addEventListener('click', () => void controller.discardNow());
+suspendCurrentTab.addEventListener('click', () => void controller.suspendCurrentTab());
 pauseAction.addEventListener('click', () => void controller.toggleAutomation());
 protectionAction.addEventListener('click', () => void controller.toggleProtection());
 void controller.load();

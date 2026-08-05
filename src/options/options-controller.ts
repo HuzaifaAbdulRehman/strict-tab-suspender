@@ -10,12 +10,6 @@ export interface OptionsView {
   setBusy(value: boolean): void;
 }
 
-export interface OptionalTabsPermission {
-  contains(request: { permissions: ['tabs'] }): Promise<boolean>;
-  request(request: { permissions: ['tabs'] }): Promise<boolean>;
-  remove(request: { permissions: ['tabs'] }): Promise<boolean>;
-}
-
 export interface OptionsController {
   load(): Promise<void>;
   save(idleMinutes: number): Promise<void>;
@@ -27,7 +21,7 @@ function isSettings(value: unknown): value is Settings {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.schemaVersion === 2 &&
+    candidate.schemaVersion === 3 &&
     typeof candidate.enabled === 'boolean' &&
     IDLE_MINUTE_PRESETS.includes(candidate.idleMinutes as IdleMinutes) &&
     (candidate.restoreBehavior === 'native' || candidate.restoreBehavior === 'click')
@@ -55,17 +49,6 @@ function applyStaticGuidance(view: OptionsView): void {
 export function createOptionsController(
   view: OptionsView,
   messenger: ExtensionMessenger,
-  permissions: OptionalTabsPermission = {
-    async contains() {
-      return false;
-    },
-    async request() {
-      return false;
-    },
-    async remove() {
-      return true;
-    },
-  },
 ): OptionsController {
   let latestRequest = 0;
 
@@ -121,40 +104,18 @@ export function createOptionsController(
       const request = startRequest();
       view.setBusy(true);
       try {
-        if (restoreBehavior === 'click') {
-          const granted = await permissions.request({ permissions: ['tabs'] });
-          if (!isLatestRequest(request)) return;
-          if (!granted) {
-            view.setRestoreBehavior('native');
-            view.setText('status', 'Permission was not granted. Restore behavior was not changed.');
-            return;
-          }
-        }
-
         const response = await messenger.sendMessage({
           type: 'setRestoreBehavior',
           restoreBehavior,
         });
         if (!isLatestRequest(request)) return;
         applySettings(view, response);
-        if (response.actionError === 'tabs-permission-required') {
-          view.setRestoreBehavior('native');
-          view.setText('status', 'Permission was not granted. Restore behavior was not changed.');
-          return;
-        }
-
-        if (restoreBehavior === 'native') {
-          const removed = await permissions.remove({ permissions: ['tabs'] });
-          if (!isLatestRequest(request)) return;
-          view.setText(
-            'status',
-            removed
-              ? 'Native restore behavior saved.'
-              : 'Native behavior is saved, but Chrome still retains the tabs permission. Remove it in extension settings.',
-          );
-          return;
-        }
-        view.setText('status', 'Click-to-restore behavior saved locally.');
+        view.setText(
+          'status',
+          restoreBehavior === 'native'
+            ? 'Open-normally behavior saved locally.'
+            : 'Click-to-restore behavior saved locally.',
+        );
       } catch {
         if (!isLatestRequest(request)) return;
         view.setText('status', 'Unable to change restore behavior.');
@@ -169,14 +130,7 @@ export function createOptionsController(
         const response = await messenger.sendMessage({ type: 'resetSettings' });
         if (!isLatestRequest(request)) return;
         applySettings(view, response);
-        const removed = await permissions.remove({ permissions: ['tabs'] });
-        if (!isLatestRequest(request)) return;
-        view.setText(
-          'status',
-          removed
-            ? 'Settings reset to defaults.'
-            : 'Settings reset, but Chrome still retains the tabs permission. Remove it in extension settings.',
-        );
+        view.setText('status', 'Settings reset to defaults.');
       } catch {
         if (!isLatestRequest(request)) return;
         view.setText('status', 'Unable to reset settings.');

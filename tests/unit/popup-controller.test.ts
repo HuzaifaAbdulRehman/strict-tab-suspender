@@ -50,7 +50,7 @@ describe('popup controller', () => {
         if (message.type === 'getPopupState') {
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 15,
               restoreBehavior: 'native',
@@ -68,7 +68,50 @@ describe('popup controller', () => {
 
     expect(sent.at(-1)).toEqual({ type: 'setCurrentTabProtection', protected: true });
     expect(popup.values.protectionAction).toBe('Allow suspension');
+    expect(popup.values.protectionDescription).toContain(
+      'This tab may become inactive, but it will never be suspended while protected.',
+    );
     expect(popup.values.protectionDescription).not.toMatch(/example|https|title|domain/iu);
+  });
+
+  it.each([
+    ['suspended', 'This tab is now suspended.'],
+    ['unsupported-tab', 'This tab cannot be suspended.'],
+    ['protected-tab', 'This tab is protected and was not suspended.'],
+    ['failed', 'Unable to suspend this tab.'],
+  ] as const)('sends suspendCurrentTab and renders the %s result', async (result, status) => {
+    const popup = view();
+    const sent: unknown[] = [];
+    const controller = createPopupController(popup, {
+      async sendMessage(message) {
+        sent.push(message);
+        return { currentTabAction: result };
+      },
+    });
+
+    await controller.suspendCurrentTab();
+
+    expect(sent).toEqual([{ type: 'suspendCurrentTab' }]);
+    expect(popup.values.status).toBe(status);
+    expect(popup.busy).toBe(false);
+  });
+
+  it('keeps every popup action disabled while immediate suspension is pending', async () => {
+    const popup = view();
+    const pending = deferred<{ currentTabAction: 'suspended' }>();
+    const controller = createPopupController(popup, {
+      async sendMessage() {
+        return pending.promise;
+      },
+    });
+
+    const action = controller.suspendCurrentTab();
+    expect(popup.busy).toBe(true);
+    expect(popup.values.status).toBe('Suspending this tab…');
+    pending.resolve({ currentTabAction: 'suspended' });
+    await action;
+
+    expect(popup.busy).toBe(false);
   });
 
   it('disables protection for unsupported tabs', async () => {
@@ -77,7 +120,7 @@ describe('popup controller', () => {
       async sendMessage() {
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: true,
             idleMinutes: 15,
             restoreBehavior: 'native',
@@ -100,7 +143,7 @@ describe('popup controller', () => {
         async sendMessage() {
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 30,
               restoreBehavior: 'native',
@@ -150,7 +193,7 @@ describe('popup controller', () => {
       async sendMessage(message) {
         enabled = message.type === 'pauseAutomation' ? false : true;
         return {
-          settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
+          settings: { schemaVersion: 3, enabled, idleMinutes: 15, restoreBehavior: 'native' },
         };
       },
     });
@@ -169,7 +212,7 @@ describe('popup controller', () => {
     const popup = view();
     const initialState = deferred<{
       settings: {
-        schemaVersion: 2;
+        schemaVersion: 3;
         enabled: boolean;
         idleMinutes: 15;
         restoreBehavior: 'native';
@@ -180,7 +223,7 @@ describe('popup controller', () => {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: false,
             idleMinutes: 15,
             restoreBehavior: 'native',
@@ -193,7 +236,7 @@ describe('popup controller', () => {
     expect(popup.busy).toBe(true);
     await controller.toggleAutomation();
     initialState.resolve({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await loading;
 
@@ -212,7 +255,7 @@ describe('popup controller', () => {
         if (message.type === 'getPopupState') {
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 15,
               restoreBehavior: 'native',

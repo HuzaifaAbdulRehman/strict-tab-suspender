@@ -20,6 +20,7 @@ export interface PopupView {
 export interface PopupController {
   load(): Promise<void>;
   discardNow(): Promise<void>;
+  suspendCurrentTab(): Promise<void>;
   toggleAutomation(): Promise<void>;
   toggleProtection(): Promise<void>;
 }
@@ -32,7 +33,7 @@ function isSettings(value: unknown): value is Settings {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.schemaVersion === 2 &&
+    candidate.schemaVersion === 3 &&
     typeof candidate.enabled === 'boolean' &&
     (candidate.idleMinutes === 15 ||
       candidate.idleMinutes === 30 ||
@@ -108,7 +109,7 @@ export function createPopupController(
       view.setText(
         'protectionDescription',
         value.supported
-          ? 'Protection applies only to this tab and ends when the tab is closed.'
+          ? 'This tab may become inactive, but it will never be suspended while protected. Protection ends when you choose Allow suspension or close the tab.'
           : 'Protection is unavailable for this tab.',
       );
     } else {
@@ -152,6 +153,36 @@ export function createPopupController(
       } catch {
         if (!isLatestRequest(request)) return;
         view.setText('status', 'The sweep could not be completed. No tab details were saved.');
+      } finally {
+        if (isLatestRequest(request)) view.setBusy(false);
+      }
+    },
+    async suspendCurrentTab() {
+      const request = startRequest();
+      view.setBusy(true);
+      view.setText('status', 'Suspending this tab…');
+      try {
+        const response = await messenger.sendMessage({ type: 'suspendCurrentTab' });
+        if (!isLatestRequest(request)) return;
+        const statuses = {
+          suspended: 'This tab is now suspended.',
+          'unsupported-tab': 'This tab cannot be suspended.',
+          'protected-tab': 'This tab is protected and was not suspended.',
+          failed: 'Unable to suspend this tab.',
+        } as const;
+        const action = response.currentTabAction;
+        view.setText(
+          'status',
+          action === 'suspended' ||
+            action === 'unsupported-tab' ||
+            action === 'protected-tab' ||
+            action === 'failed'
+            ? statuses[action]
+            : statuses.failed,
+        );
+      } catch {
+        if (!isLatestRequest(request)) return;
+        view.setText('status', 'Unable to suspend this tab.');
       } finally {
         if (isLatestRequest(request)) view.setBusy(false);
       }

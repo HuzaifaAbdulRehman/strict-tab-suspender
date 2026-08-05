@@ -20,12 +20,12 @@ describe('extension manifest', () => {
     expect(manifest).toMatchObject({
       manifest_version: 3,
       name: 'Strict Tab Discarder',
-      version: '0.2.0',
+      version: '0.3.0',
       minimum_chrome_version: '121',
-      permissions: ['alarms', 'storage'],
-      optional_permissions: ['tabs'],
+      permissions: ['alarms', 'storage', 'tabs'],
       background: { service_worker: 'background/service-worker.js', type: 'module' },
     });
+    expect(manifest.optional_permissions).toBeUndefined();
   });
 
   it('forbids remote access and unneeded extension capabilities', async () => {
@@ -52,6 +52,6 @@ describe('extension manifest', () => {
       '48': 'icons/icon-48.png',
       '128': 'icons/icon-128.png',
     });
-    expect(manifest.permissions).toEqual(['alarms', 'storage']);
+    expect(manifest.permissions).toEqual(['alarms', 'storage', 'tabs']);
   });
 });

@@ -33,11 +33,15 @@
       <button id="discard-now" class="primary" type="button" disabled>
         Suspend eligible tabs now
       </button>
+      <button id="suspend-current-tab" class="primary" type="button" disabled>
+        Suspend this tab now
+      </button>
       <section class="card protection-card" aria-labelledby="protection-heading">
         <div>
           <p id="protection-heading" class="label">Current tab</p>
           <p id="protection-description">
-            Protection applies only to this tab and ends when the tab is closed.
+            This tab may become inactive, but it will never be suspended while protected. Protection
+            ends when you choose Allow suspension or close the tab.
           </p>
         </div>
         <button id="protect-tab" class="secondary" type="button" disabled>Protect this tab</button>

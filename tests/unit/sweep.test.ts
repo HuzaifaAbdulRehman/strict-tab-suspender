@@ -26,7 +26,7 @@ function tab(id: number, changes: Partial<TabSnapshot> = {}): TabSnapshot {
 
 function storageWith(
   settings = {
-    schemaVersion: 2 as const,
+    schemaVersion: 3 as const,
     enabled: true,
     idleMinutes: 15 as const,
     restoreBehavior: 'native' as const,
@@ -97,7 +97,7 @@ describe('runSweep', () => {
   it('uses parking instead of native discard in click mode', async () => {
     const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
     deps.storage.data.settings = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
       restoreBehavior: 'click',
@@ -112,7 +112,7 @@ describe('runSweep', () => {
   it('does not silently fall back when tabs permission is absent', async () => {
     const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
     deps.storage.data.settings = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
       restoreBehavior: 'click',
@@ -129,7 +129,7 @@ describe('runSweep', () => {
   it('fails closed when click parking rejects unexpectedly', async () => {
     const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
     deps.storage.data.settings = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
       restoreBehavior: 'click',
@@ -146,7 +146,7 @@ describe('runSweep', () => {
   it('rechecks optional permission immediately before parking', async () => {
     const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
     deps.storage.data.settings = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
       restoreBehavior: 'click',
@@ -168,7 +168,7 @@ describe('runSweep', () => {
   it('can convert an already-discarded http tab only in click mode', async () => {
     const deps = dependencies([tab(1, { url: 'https://example.test/', discarded: true })]);
     deps.storage.data.settings = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: true,
       idleMinutes: 15,
       restoreBehavior: 'click',
@@ -340,7 +340,7 @@ describe('runSweep', () => {
     await expect(
       discardIfStillEligible(
         { ...tab(1), id: undefined },
-        { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+        { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
         deps,
       ),
     ).resolves.toBe('skipped');

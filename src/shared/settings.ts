@@ -2,7 +2,7 @@ export type IdleMinutes = 15 | 30 | 60 | 120;
 export type RestoreBehavior = 'native' | 'click';
 
 export interface Settings {
-  schemaVersion: 2;
+  schemaVersion: 3;
   enabled: boolean;
   idleMinutes: IdleMinutes;
   restoreBehavior: RestoreBehavior;
@@ -23,10 +23,10 @@ export interface LocalStorageArea {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   enabled: true,
   idleMinutes: 15,
-  restoreBehavior: 'native',
+  restoreBehavior: 'click',
 };
 
 export const SETTINGS_STORAGE_KEY = 'settings';
@@ -63,7 +63,12 @@ function isV1Settings(
   );
 }
 
-function isSettings(value: unknown): value is Settings {
+function isV2Settings(value: unknown): value is {
+  schemaVersion: 2;
+  enabled: boolean;
+  idleMinutes: IdleMinutes;
+  restoreBehavior: RestoreBehavior;
+} {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
@@ -74,19 +79,38 @@ function isSettings(value: unknown): value is Settings {
   );
 }
 
+function isSettings(value: unknown): value is Settings {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.schemaVersion === 3 &&
+    typeof candidate.enabled === 'boolean' &&
+    isIdleMinutes(candidate.idleMinutes) &&
+    isRestoreBehavior(candidate.restoreBehavior)
+  );
+}
+
 function normalizeSettings(value: unknown): Settings {
   if (value === undefined) return { ...DEFAULT_SETTINGS };
   if (isV1Settings(value)) {
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: value.enabled,
       idleMinutes: value.idleMinutes,
-      restoreBehavior: 'native',
+      restoreBehavior: 'click',
+    };
+  }
+  if (isV2Settings(value)) {
+    return {
+      schemaVersion: 3,
+      enabled: value.enabled,
+      idleMinutes: value.idleMinutes,
+      restoreBehavior: 'click',
     };
   }
   if (isSettings(value)) {
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: value.enabled,
       idleMinutes: value.idleMinutes,
       restoreBehavior: value.restoreBehavior,
@@ -131,7 +155,7 @@ export async function saveSettings(
   return serializeSettingsWrite(storage, async () => {
     const existing = await getSettings(storage);
     const settings: Settings = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabled: update.enabled ?? existing.enabled,
       idleMinutes: update.idleMinutes ?? existing.idleMinutes,
       restoreBehavior: update.restoreBehavior ?? existing.restoreBehavior,

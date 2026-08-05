@@ -22,7 +22,7 @@ describe('service-worker durable startup grace', () => {
           async get() {
             return {
               settings: {
-                schemaVersion: 2,
+                schemaVersion: 3,
                 enabled: true,
                 idleMinutes: 15,
                 restoreBehavior: 'native',

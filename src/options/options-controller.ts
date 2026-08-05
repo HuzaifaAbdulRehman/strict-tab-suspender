@@ -27,7 +27,7 @@ function isSettings(value: unknown): value is Settings {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.schemaVersion === 2 &&
+    candidate.schemaVersion === 3 &&
     typeof candidate.enabled === 'boolean' &&
     IDLE_MINUTE_PRESETS.includes(candidate.idleMinutes as IdleMinutes) &&
     (candidate.restoreBehavior === 'native' || candidate.restoreBehavior === 'click')

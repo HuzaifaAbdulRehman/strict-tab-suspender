@@ -50,7 +50,7 @@ describe('popup controller', () => {
         if (message.type === 'getPopupState') {
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 15,
               restoreBehavior: 'native',
@@ -77,7 +77,7 @@ describe('popup controller', () => {
       async sendMessage() {
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: true,
             idleMinutes: 15,
             restoreBehavior: 'native',
@@ -100,7 +100,7 @@ describe('popup controller', () => {
         async sendMessage() {
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 30,
               restoreBehavior: 'native',
@@ -150,7 +150,7 @@ describe('popup controller', () => {
       async sendMessage(message) {
         enabled = message.type === 'pauseAutomation' ? false : true;
         return {
-          settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
+          settings: { schemaVersion: 3, enabled, idleMinutes: 15, restoreBehavior: 'native' },
         };
       },
     });
@@ -169,7 +169,7 @@ describe('popup controller', () => {
     const popup = view();
     const initialState = deferred<{
       settings: {
-        schemaVersion: 2;
+        schemaVersion: 3;
         enabled: boolean;
         idleMinutes: 15;
         restoreBehavior: 'native';
@@ -180,7 +180,7 @@ describe('popup controller', () => {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: false,
             idleMinutes: 15,
             restoreBehavior: 'native',
@@ -193,7 +193,7 @@ describe('popup controller', () => {
     expect(popup.busy).toBe(true);
     await controller.toggleAutomation();
     initialState.resolve({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await loading;
 
@@ -212,7 +212,7 @@ describe('popup controller', () => {
         if (message.type === 'getPopupState') {
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 15,
               restoreBehavior: 'native',

@@ -19,7 +19,7 @@ function storageWith(
   enabled = true,
 ): LocalStorageArea & { data: Record<string, unknown>; writes: Record<string, unknown>[] } {
   const data: Record<string, unknown> = {
-    settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
+    settings: { schemaVersion: 3, enabled, idleMinutes: 15, restoreBehavior: 'native' },
   };
   const writes: Record<string, unknown>[] = [];
   return {
@@ -149,7 +149,7 @@ describe('service worker scheduler', () => {
     const deps = dependencies();
 
     await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
       tabsPermissionGranted: true,
       currentTabProtection: { supported: true, protected: false },
     });
@@ -163,18 +163,18 @@ describe('service worker scheduler', () => {
       },
     });
     await expect(handleExtensionMessage({ type: 'pauseAutomation' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await expect(
       handleExtensionMessage({ type: 'saveSettings', idleMinutes: 60 }, deps),
     ).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
     });
     await expect(handleExtensionMessage({ type: 'resetSettings' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
     });
     expect(deps.storage.data).toEqual({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
       latestSweepSummary: {
         checkedAt: now,
         evaluatedCount: 0,
@@ -235,7 +235,7 @@ describe('service worker scheduler', () => {
     expect(deps.storage.writes).toEqual([
       {
         settings: {
-          schemaVersion: 2,
+          schemaVersion: 3,
           enabled: false,
           idleMinutes: 15,
           restoreBehavior: 'native',
@@ -243,7 +243,7 @@ describe('service worker scheduler', () => {
       },
       {
         settings: {
-          schemaVersion: 2,
+          schemaVersion: 3,
           enabled: true,
           idleMinutes: 15,
           restoreBehavior: 'native',

@@ -45,7 +45,7 @@ describe('options controller', () => {
           calls.push(['message', message]);
           return {
             settings: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               enabled: true,
               idleMinutes: 15,
               restoreBehavior: 'click',
@@ -112,7 +112,7 @@ describe('options controller', () => {
       async sendMessage() {
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: false,
             idleMinutes: 60,
             restoreBehavior: 'native',
@@ -143,8 +143,8 @@ describe('options controller', () => {
         return {
           settings:
             message.type === 'resetSettings'
-              ? { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' }
-              : { schemaVersion: 2, enabled: true, idleMinutes: 120, restoreBehavior: 'native' },
+              ? { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' }
+              : { schemaVersion: 3, enabled: true, idleMinutes: 120, restoreBehavior: 'native' },
         };
       },
     });
@@ -164,7 +164,7 @@ describe('options controller', () => {
     const options = view();
     const initialState = deferred<{
       settings: {
-        schemaVersion: 2;
+        schemaVersion: 3;
         enabled: boolean;
         idleMinutes: 15;
         restoreBehavior: 'native';
@@ -175,7 +175,7 @@ describe('options controller', () => {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
           settings: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             enabled: true,
             idleMinutes: 120,
             restoreBehavior: 'native',
@@ -188,7 +188,7 @@ describe('options controller', () => {
     expect(options.busy).toBe(true);
     await controller.save(120);
     initialState.resolve({
-      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await loading;
 
@@ -204,7 +204,7 @@ describe('options controller', () => {
     const options = view();
     const initialState = deferred<{
       settings: {
-        schemaVersion: 2;
+        schemaVersion: 3;
         enabled: boolean;
         idleMinutes: 120;
         restoreBehavior: 'native';
@@ -214,7 +214,7 @@ describe('options controller', () => {
       async sendMessage(message) {
         if (message.type === 'getPopupState') return initialState.promise;
         return {
-          settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+          settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
         };
       },
     });
@@ -222,7 +222,7 @@ describe('options controller', () => {
     const loading = controller.load();
     await controller.reset();
     initialState.resolve({
-      settings: { schemaVersion: 2, enabled: false, idleMinutes: 120, restoreBehavior: 'native' },
+      settings: { schemaVersion: 3, enabled: false, idleMinutes: 120, restoreBehavior: 'native' },
     });
     await loading;
 

@@ -79,6 +79,25 @@ describe('settings', () => {
     });
   });
 
+  it('preserves an explicit click restore behavior in valid v3 settings', async () => {
+    const storage = storageWith({
+      settings: {
+        schemaVersion: 3,
+        enabled: false,
+        idleMinutes: 120,
+        restoreBehavior: 'click',
+        title: 'must not persist',
+      },
+    });
+
+    await expect(getSettings(storage)).resolves.toEqual({
+      schemaVersion: 3,
+      enabled: false,
+      idleMinutes: 120,
+      restoreBehavior: 'click',
+    });
+  });
+
   it('rejects an unknown restore behavior before writing it', async () => {
     const storage = storageWith();
 

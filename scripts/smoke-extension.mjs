@@ -93,6 +93,15 @@ function trackExtensionNetwork(page, extensionOrigin, unexpectedRequests) {
   });
 }
 
+async function activateTabForPopupAction(worker, tabId) {
+  const activeTabId = await worker.evaluate(async (targetTabId) => {
+    await chrome.tabs.update(targetTabId, { active: true });
+    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    return activeTab?.id;
+  }, tabId);
+  if (activeTabId !== tabId) throw new Error('Could not activate the tab used by the popup test.');
+}
+
 async function testExtension(extensionDirectory, label) {
   const profile = await mkdtemp(path.join(os.tmpdir(), 'strict-tab-discarder-smoke-'));
   const localPage = await startLocalPageServer();
@@ -151,9 +160,12 @@ async function testExtension(extensionDirectory, label) {
     await popup.waitForFunction(
       () => !document.querySelector('#protect-tab')?.hasAttribute('disabled'),
     );
+    await activateTabForPopupAction(worker, normalTabId);
     await popup.$eval('#protect-tab', (button) => button.click());
-    await popup.waitForFunction(() =>
-      document.getElementById('status')?.textContent?.includes('is protected'),
+    await popup.waitForFunction(
+      () =>
+        document.getElementById('status')?.textContent?.includes('is protected') === true &&
+        !document.getElementById('protect-tab')?.hasAttribute('disabled'),
     );
     const protectedState = await worker.evaluate(
       async (tabId) => (await chrome.tabs.get(tabId)).autoDiscardable,
@@ -161,9 +173,12 @@ async function testExtension(extensionDirectory, label) {
     );
     if (protectedState !== false) throw new Error('Protect this tab did not disable auto discard.');
 
+    await activateTabForPopupAction(worker, normalTabId);
     await popup.$eval('#protect-tab', (button) => button.click());
-    await popup.waitForFunction(() =>
-      document.getElementById('status')?.textContent?.includes('may be suspended'),
+    await popup.waitForFunction(
+      () =>
+        document.getElementById('status')?.textContent?.includes('may be suspended') === true &&
+        !document.getElementById('protect-tab')?.hasAttribute('disabled'),
     );
     const allowedState = await worker.evaluate(
       async (tabId) => (await chrome.tabs.get(tabId)).autoDiscardable,
@@ -183,13 +198,23 @@ async function testExtension(extensionDirectory, label) {
     }
 
     await popup.click('#discard-now');
-    await popup.waitForFunction(() =>
-      document.getElementById('status')?.textContent?.startsWith('Sweep complete:'),
+    await popup.waitForFunction(
+      () =>
+        document.getElementById('status')?.textContent?.startsWith('Sweep complete:') === true &&
+        !document.getElementById('pause-action')?.hasAttribute('disabled'),
     );
     await popup.click('#pause-action');
-    await popup.waitForFunction(() => document.getElementById('state')?.textContent === 'Paused');
+    await popup.waitForFunction(
+      () =>
+        document.getElementById('state')?.textContent === 'Paused' &&
+        !document.getElementById('pause-action')?.hasAttribute('disabled'),
+    );
     await popup.click('#pause-action');
-    await popup.waitForFunction(() => document.getElementById('state')?.textContent === 'On');
+    await popup.waitForFunction(
+      () =>
+        document.getElementById('state')?.textContent === 'On' &&
+        !document.getElementById('pause-action')?.hasAttribute('disabled'),
+    );
 
     const options = await browser.newPage();
     trackExtensionNetwork(options, extensionOrigin, unexpectedRequests);

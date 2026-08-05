@@ -100,7 +100,7 @@ function dependencies(
 }
 
 describe('service worker scheduler', () => {
-  it('reports optional permission and current-tab protection state', async () => {
+  it('reports tabs permission and current-tab protection state', async () => {
     const deps = dependencies();
 
     await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toMatchObject({
@@ -121,16 +121,16 @@ describe('service worker scheduler', () => {
     expect(deps.calls).toContain('update:9:false');
   });
 
-  it('does not enable click restore when optional tabs permission is absent', async () => {
+  it('saves click restore behavior without an optional-permission check', async () => {
     const deps = dependencies();
     deps.hasTabsPermission = async () => false;
 
     await expect(
       handleExtensionMessage({ type: 'setRestoreBehavior', restoreBehavior: 'click' }, deps),
-    ).resolves.toMatchObject({
-      actionError: 'tabs-permission-required',
-      settings: { restoreBehavior: 'native' },
+    ).resolves.toEqual({
+      settings: { schemaVersion: 3, enabled: true, idleMinutes: 15, restoreBehavior: 'click' },
     });
+    expect(deps.calls).not.toContain('permission');
   });
 
   it('accepts page readiness only with an explicit sender tab and URL', async () => {

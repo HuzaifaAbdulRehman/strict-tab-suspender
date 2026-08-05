@@ -114,21 +114,11 @@ export async function handleExtensionMessage(
     return { settings };
   }
   if (message.type === 'setRestoreBehavior') {
-    if (message.restoreBehavior === 'click' && !(await dependencies.hasTabsPermission())) {
-      return {
-        settings: await getSettings(dependencies.storage),
-        tabsPermissionGranted: false,
-        actionError: 'tabs-permission-required',
-      };
-    }
     const settings = await saveSettings(
       { restoreBehavior: message.restoreBehavior },
       dependencies.storage,
     );
-    return {
-      settings,
-      tabsPermissionGranted: await dependencies.hasTabsPermission(),
-    };
+    return { settings };
   }
   if (message.type === 'setCurrentTabProtection') {
     const activeTabs = await dependencies.tabs.query({ active: true, lastFocusedWindow: true });

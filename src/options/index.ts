@@ -10,12 +10,6 @@ interface RuntimeApi {
   sendMessage(message: ExtensionRequest): Promise<ExtensionResponse>;
 }
 
-interface PermissionsApi {
-  contains(request: { permissions: ['tabs'] }): Promise<boolean>;
-  request(request: { permissions: ['tabs'] }): Promise<boolean>;
-  remove(request: { permissions: ['tabs'] }): Promise<boolean>;
-}
-
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLElement)) throw new Error(`Missing ${id} element.`);
@@ -41,9 +35,6 @@ const messenger: ExtensionMessenger = {
       : runtime.sendMessage(message);
   },
 };
-const permissions = (
-  globalThis as typeof globalThis & { chrome?: { permissions?: PermissionsApi } }
-).chrome?.permissions;
 const view: OptionsView = {
   setText(name, value) {
     byId(name).textContent = value;
@@ -72,17 +63,7 @@ const view: OptionsView = {
     confirmReset.disabled = value;
   },
 };
-const controller = createOptionsController(view, messenger, {
-  contains(request) {
-    return permissions?.contains(request) ?? Promise.resolve(false);
-  },
-  request(request) {
-    return permissions?.request(request) ?? Promise.resolve(false);
-  },
-  remove(request) {
-    return permissions?.remove(request) ?? Promise.resolve(false);
-  },
-});
+const controller = createOptionsController(view, messenger);
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();

@@ -271,6 +271,107 @@ describe('click suspension coordinator', () => {
     expect(state.calls.filter((call) => call === `update:7:${original}`)).toEqual([]);
   });
 
+  it.each([
+    ['rejects an otherwise valid mixed pair', 'own-pending', 'https://changed.test/'],
+    ['preserves a newly pinned committed target', 'pinned-own-pending', 'https://changed.test/'],
+    [
+      'preserves a newly protected committed target',
+      'protected-own-pending',
+      'https://changed.test/',
+    ],
+    ['leaves a different pending destination untouched', 'different-pending', undefined],
+    [
+      'rejects a committed placeholder with a conflicting pending destination',
+      'parked-different-pending',
+      undefined,
+    ],
+    ['does not reload an unsupported committed target', 'unsupported-own-pending', undefined],
+    [
+      'does not overwrite an unsupported protected target',
+      'unsupported-protected-own-pending',
+      undefined,
+    ],
+  ] as const)('%s during automatic parking', async (_label, stateKind, safeRecoveryUrl) => {
+    const calls: string[] = [];
+    const changedUrl = 'https://changed.test/';
+    const unsupportedUrl = 'chrome://settings/';
+    const differentPendingUrl = 'https://destination.test/';
+    let current = tab(7);
+    let parkingUpdateComplete = false;
+    const coordinator = createParkingCoordinator(
+      {
+        async get() {
+          return current;
+        },
+        async update(id, update) {
+          calls.push(`update:${id}:${update.url}`);
+          if (parkingUpdateComplete) {
+            current = { ...current, id, url: update.url };
+            delete current.pendingUrl;
+            return current;
+          }
+          if (update.url === undefined) throw new Error('missing test URL');
+          parkingUpdateComplete = true;
+          const parkedUrl = update.url;
+          switch (stateKind) {
+            case 'own-pending':
+              current = tab(id, { url: changedUrl, pendingUrl: parkedUrl });
+              break;
+            case 'pinned-own-pending':
+              current = tab(id, { url: changedUrl, pendingUrl: parkedUrl, pinned: true });
+              break;
+            case 'protected-own-pending':
+              current = tab(id, {
+                url: changedUrl,
+                pendingUrl: parkedUrl,
+                autoDiscardable: false,
+              });
+              break;
+            case 'different-pending':
+              current = tab(id, { url: changedUrl, pendingUrl: differentPendingUrl });
+              break;
+            case 'parked-different-pending':
+              current = tab(id, { url: parkedUrl, pendingUrl: differentPendingUrl });
+              break;
+            case 'unsupported-own-pending':
+              current = tab(id, { url: unsupportedUrl, pendingUrl: parkedUrl });
+              break;
+            case 'unsupported-protected-own-pending':
+              current = tab(id, {
+                url: unsupportedUrl,
+                pendingUrl: parkedUrl,
+                autoDiscardable: false,
+              });
+              break;
+          }
+          return current;
+        },
+        async discard() {
+          return current;
+        },
+      },
+      extensionPage,
+    );
+
+    await expect(coordinator.park(tab(7))).resolves.toBe('skipped');
+
+    const recoveryCalls = calls.slice(1);
+    if (safeRecoveryUrl === undefined) {
+      expect(recoveryCalls).toEqual([]);
+    } else {
+      expect(recoveryCalls).toEqual([`update:7:${safeRecoveryUrl}`]);
+      expect(current.url).toBe(safeRecoveryUrl);
+      expect(current.pendingUrl).toBeUndefined();
+    }
+    expect(recoveryCalls).not.toContain(`update:7:${original}`);
+    if (stateKind === 'different-pending' || stateKind === 'parked-different-pending') {
+      expect(current.pendingUrl).toBe(differentPendingUrl);
+    }
+    if (stateKind.startsWith('unsupported')) {
+      expect(current.url).toBe(unsupportedUrl);
+    }
+  });
+
   it('discards only an inactive exact suspended-page sender', async () => {
     const state = harness();
     await state.coordinator.park(tab(7));
@@ -441,6 +542,78 @@ describe('immediate current-tab suspension', () => {
 
     await expect(state.run()).resolves.toBe('failed');
     expect(state.calls).toEqual(['query-active', 'get:9']);
+  });
+
+  it.each([
+    ['cancels its pending placeholder over a newer safe URL', 'own-pending', true],
+    ['leaves a different pending destination untouched', 'different-pending', false],
+    [
+      'rejects a committed placeholder with a conflicting pending destination',
+      'parked-different-pending',
+      false,
+    ],
+    ['does not reload an unsupported committed target', 'unsupported-own-pending', false],
+  ] as const)('%s during current-tab parking', async (_label, stateKind, shouldRecoverSafeUrl) => {
+    const calls: string[] = [];
+    const changedUrl = 'https://changed.test/';
+    const unsupportedUrl = 'chrome://settings/';
+    const differentPendingUrl = 'https://destination.test/';
+    let current = tab(9, { active: true });
+    let parkingUpdateComplete = false;
+    const tabs = {
+      async query() {
+        return [current];
+      },
+      async get() {
+        return current;
+      },
+      async update(id: number, update: { url?: string }) {
+        calls.push(`update:${id}:${update.url}`);
+        if (parkingUpdateComplete) {
+          current = { ...current, id, url: update.url };
+          delete current.pendingUrl;
+          return current;
+        }
+        if (update.url === undefined) throw new Error('missing test URL');
+        parkingUpdateComplete = true;
+        if (stateKind === 'own-pending') {
+          current = tab(id, { active: true, url: changedUrl, pendingUrl: update.url });
+        } else if (stateKind === 'different-pending') {
+          current = tab(id, {
+            active: true,
+            url: changedUrl,
+            pendingUrl: differentPendingUrl,
+          });
+        } else if (stateKind === 'parked-different-pending') {
+          current = tab(id, {
+            active: true,
+            url: update.url,
+            pendingUrl: differentPendingUrl,
+          });
+        } else {
+          current = tab(id, { active: true, url: unsupportedUrl, pendingUrl: update.url });
+        }
+        return current;
+      },
+      async discard() {
+        return current;
+      },
+    };
+    const coordinator = createParkingCoordinator(tabs, extensionPage);
+
+    await expect(suspendCurrentTabNow(tabs, coordinator)).resolves.toBe('failed');
+
+    const recoveryCalls = calls.slice(1);
+    expect(recoveryCalls).toEqual(shouldRecoverSafeUrl ? [`update:9:${changedUrl}`] : []);
+    expect(recoveryCalls).not.toContain(`update:9:${original}`);
+    if (stateKind !== 'parked-different-pending') {
+      expect(current.url).toBe(
+        stateKind === 'unsupported-own-pending' ? unsupportedUrl : changedUrl,
+      );
+    }
+    if (stateKind === 'different-pending' || stateKind === 'parked-different-pending') {
+      expect(current.pendingUrl).toBe(differentPendingUrl);
+    }
   });
 
   it('does not overwrite a different placeholder URL when current-action activation cancels', async () => {

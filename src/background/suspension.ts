@@ -89,20 +89,34 @@ export function createParkingCoordinator(
 ): ParkingCoordinator {
   const pending = new Map<number, PendingParking>();
 
-  function isExactPlaceholder(tab: TabSnapshot, tabId: number, parkedUrl: string): boolean {
-    return tab.id === tabId && (tab.url === parkedUrl || tab.pendingUrl === parkedUrl);
+  function hasValidParkingDestination(
+    tab: TabSnapshot,
+    originalUrl: string,
+    parkedUrl: string,
+  ): boolean {
+    return (
+      (tab.url === parkedUrl && (tab.pendingUrl === undefined || tab.pendingUrl === parkedUrl)) ||
+      (tab.url === originalUrl && tab.pendingUrl === parkedUrl)
+    );
   }
 
-  async function restoreExactPlaceholder(
+  async function recoverOwnPlaceholderNavigation(
     tabId: number,
     parkedUrl: string,
     originalUrl: string,
   ): Promise<void> {
     try {
       const current = await tabs.get(tabId);
-      if (isExactPlaceholder(current, tabId, parkedUrl)) {
+      if (current.id !== tabId) return;
+      if (
+        current.url === parkedUrl &&
+        (current.pendingUrl === undefined || current.pendingUrl === parkedUrl)
+      ) {
         await tabs.update(tabId, { url: originalUrl });
+        return;
       }
+      if (current.pendingUrl !== parkedUrl || !isSupportedOriginalUrl(current.url)) return;
+      await tabs.update(tabId, { url: current.url });
     } catch {
       // The tab may have closed or navigated again. Never retry or overwrite a new address.
     }
@@ -127,13 +141,13 @@ export function createParkingCoordinator(
           state.cancelled === false &&
           updated.id === tab.id &&
           updated.active === true &&
-          (updated.url === parkedUrl || updated.pendingUrl === parkedUrl) &&
+          hasValidParkingDestination(updated, state.originalUrl, parkedUrl) &&
           updated.pinned !== true &&
           updated.audible !== true &&
           updated.discarded !== true &&
           updated.autoDiscardable !== false;
         if (!currentActionStayedValid) {
-          await restoreExactPlaceholder(tab.id, parkedUrl, state.originalUrl);
+          await recoverOwnPlaceholderNavigation(tab.id, parkedUrl, state.originalUrl);
           return 'skipped';
         }
         return 'discarded';
@@ -142,12 +156,12 @@ export function createParkingCoordinator(
         state.cancelled === false &&
         updated.id === tab.id &&
         updated.active === false &&
-        (updated.url === parkedUrl || updated.pendingUrl === parkedUrl) &&
+        hasValidParkingDestination(updated, state.originalUrl, parkedUrl) &&
         updated.pinned !== true &&
         updated.audible !== true &&
         updated.autoDiscardable !== false;
       if (!automaticParkingStayedValid) {
-        await restoreExactPlaceholder(tab.id, parkedUrl, state.originalUrl);
+        await recoverOwnPlaceholderNavigation(tab.id, parkedUrl, state.originalUrl);
         return 'skipped';
       }
       return 'discarded';
@@ -171,7 +185,7 @@ export function createParkingCoordinator(
       const state = pending.get(tabId);
       if (state === undefined) return;
       state.cancelled = true;
-      await restoreExactPlaceholder(tabId, state.exactParkedUrl, state.originalUrl);
+      await recoverOwnPlaceholderNavigation(tabId, state.exactParkedUrl, state.originalUrl);
     },
 
     async handlePageReady(tabId, senderUrl) {

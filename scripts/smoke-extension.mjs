@@ -159,6 +159,7 @@ async function testExtension(extensionDirectory, label) {
     await popup.reload();
     await popup.waitForFunction(
       () => !document.querySelector('#protect-tab')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
     );
     await activateTabForPopupAction(worker, normalTabId);
     await popup.$eval('#protect-tab', (button) => button.click());
@@ -166,6 +167,7 @@ async function testExtension(extensionDirectory, label) {
       () =>
         document.getElementById('status')?.textContent?.includes('is protected') === true &&
         !document.getElementById('protect-tab')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
     );
     const protectedState = await worker.evaluate(
       async (tabId) => (await chrome.tabs.get(tabId)).autoDiscardable,
@@ -179,6 +181,7 @@ async function testExtension(extensionDirectory, label) {
       () =>
         document.getElementById('status')?.textContent?.includes('may be suspended') === true &&
         !document.getElementById('protect-tab')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
     );
     const allowedState = await worker.evaluate(
       async (tabId) => (await chrome.tabs.get(tabId)).autoDiscardable,
@@ -202,18 +205,21 @@ async function testExtension(extensionDirectory, label) {
       () =>
         document.getElementById('status')?.textContent?.startsWith('Sweep complete:') === true &&
         !document.getElementById('pause-action')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
     );
     await popup.click('#pause-action');
     await popup.waitForFunction(
       () =>
         document.getElementById('state')?.textContent === 'Paused' &&
         !document.getElementById('pause-action')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
     );
     await popup.click('#pause-action');
     await popup.waitForFunction(
       () =>
         document.getElementById('state')?.textContent === 'On' &&
         !document.getElementById('pause-action')?.hasAttribute('disabled'),
+      { polling: 'mutation' },
     );
 
     const options = await browser.newPage();

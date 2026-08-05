@@ -118,6 +118,23 @@ function trackExtensionNetwork(page, extensionOrigin, unexpectedRequests) {
   });
 }
 
+async function runSmokeStep(label, step, action) {
+  console.log(`[${label}] ${step}`);
+  try {
+    return await action();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`[${label}] ${step} failed: ${detail}`, { cause: error });
+  }
+}
+
+async function clickElement(page, selector) {
+  await page.$eval(selector, (element) => {
+    if (typeof element.click !== 'function') throw new Error('Element is not clickable.');
+    element.click();
+  });
+}
+
 async function activateTabForPopupAction(worker, tabId) {
   const activeTabId = await worker.evaluate(async (targetTabId) => {
     await chrome.tabs.update(targetTabId, { active: true });
@@ -164,28 +181,32 @@ async function testExtension(extensionDirectory, label) {
       () => !document.querySelector('#protect-tab')?.hasAttribute('disabled'),
       { polling: 'mutation' },
     );
-    await activateTabForPopupAction(worker, normalTabId);
-    await popup.$eval('#protect-tab', (button) => button.click());
-    await popup.waitForFunction(
-      () =>
-        document.getElementById('status')?.textContent?.includes('is protected') === true &&
-        !document.getElementById('protect-tab')?.hasAttribute('disabled'),
-      { polling: 'mutation' },
-    );
+    await runSmokeStep(label, 'protect current tab', async () => {
+      await activateTabForPopupAction(worker, normalTabId);
+      await clickElement(popup, '#protect-tab');
+      await popup.waitForFunction(
+        () =>
+          document.getElementById('status')?.textContent?.includes('is protected') === true &&
+          !document.getElementById('protect-tab')?.hasAttribute('disabled'),
+        { polling: 'mutation' },
+      );
+    });
     const protectedState = await worker.evaluate(
       async (tabId) => (await chrome.tabs.get(tabId)).autoDiscardable,
       normalTabId,
     );
     if (protectedState !== false) throw new Error('Protect this tab did not disable auto discard.');
 
-    await activateTabForPopupAction(worker, normalTabId);
-    await popup.$eval('#protect-tab', (button) => button.click());
-    await popup.waitForFunction(
-      () =>
-        document.getElementById('status')?.textContent?.includes('may be suspended') === true &&
-        !document.getElementById('protect-tab')?.hasAttribute('disabled'),
-      { polling: 'mutation' },
-    );
+    await runSmokeStep(label, 'allow current tab suspension', async () => {
+      await activateTabForPopupAction(worker, normalTabId);
+      await clickElement(popup, '#protect-tab');
+      await popup.waitForFunction(
+        () =>
+          document.getElementById('status')?.textContent?.includes('may be suspended') === true &&
+          !document.getElementById('protect-tab')?.hasAttribute('disabled'),
+        { polling: 'mutation' },
+      );
+    });
     const allowedState = await worker.evaluate(
       async (tabId) => (await chrome.tabs.get(tabId)).autoDiscardable,
       normalTabId,
@@ -203,14 +224,16 @@ async function testExtension(extensionDirectory, label) {
       throw new Error(`Unexpected popup keyboard order: ${focusOrder.join(',')}`);
     }
 
-    await activateTabForPopupAction(worker, normalTabId);
-    await popup.$eval('#suspend-current-tab', (button) => button.click());
-    await popup.waitForFunction(
-      () =>
-        document.getElementById('status')?.textContent !== 'Suspending this tabâ€¦' &&
-        !document.getElementById('suspend-current-tab')?.hasAttribute('disabled'),
-      { polling: 'mutation' },
-    );
+    await runSmokeStep(label, 'suspend current tab', async () => {
+      await activateTabForPopupAction(worker, normalTabId);
+      await clickElement(popup, '#suspend-current-tab');
+      await popup.waitForFunction(
+        () =>
+          document.getElementById('status')?.textContent !== 'Suspending this tabâ€¦' &&
+          !document.getElementById('suspend-current-tab')?.hasAttribute('disabled'),
+        { polling: 'mutation' },
+      );
+    });
     const suspensionStatus = await popup.$eval('#status', (status) => status.textContent);
     if (suspensionStatus !== 'This tab is now suspended.') {
       throw new Error(`Suspend this tab now failed: ${suspensionStatus}`);
@@ -251,27 +274,33 @@ async function testExtension(extensionDirectory, label) {
     if (normalTab.url() !== localPage.url)
       throw new Error('Keyboard Restore did not open the original page.');
 
-    await popup.click('#discard-now');
-    await popup.waitForFunction(
-      () =>
-        document.getElementById('status')?.textContent?.startsWith('Sweep complete:') === true &&
-        !document.getElementById('pause-action')?.hasAttribute('disabled'),
-      { polling: 'mutation' },
-    );
-    await popup.click('#pause-action');
-    await popup.waitForFunction(
-      () =>
-        document.getElementById('state')?.textContent === 'Paused' &&
-        !document.getElementById('pause-action')?.hasAttribute('disabled'),
-      { polling: 'mutation' },
-    );
-    await popup.click('#pause-action');
-    await popup.waitForFunction(
-      () =>
-        document.getElementById('state')?.textContent === 'On' &&
-        !document.getElementById('pause-action')?.hasAttribute('disabled'),
-      { polling: 'mutation' },
-    );
+    await runSmokeStep(label, 'manual sweep', async () => {
+      await clickElement(popup, '#discard-now');
+      await popup.waitForFunction(
+        () =>
+          document.getElementById('status')?.textContent?.startsWith('Sweep complete:') === true &&
+          !document.getElementById('pause-action')?.hasAttribute('disabled'),
+        { polling: 'mutation' },
+      );
+    });
+    await runSmokeStep(label, 'pause automation', async () => {
+      await clickElement(popup, '#pause-action');
+      await popup.waitForFunction(
+        () =>
+          document.getElementById('state')?.textContent === 'Paused' &&
+          !document.getElementById('pause-action')?.hasAttribute('disabled'),
+        { polling: 'mutation' },
+      );
+    });
+    await runSmokeStep(label, 'resume automation', async () => {
+      await clickElement(popup, '#pause-action');
+      await popup.waitForFunction(
+        () =>
+          document.getElementById('state')?.textContent === 'On' &&
+          !document.getElementById('pause-action')?.hasAttribute('disabled'),
+        { polling: 'mutation' },
+      );
+    });
 
     const options = await browser.newPage();
     trackExtensionNetwork(options, extensionOrigin, unexpectedRequests);
@@ -286,17 +315,21 @@ async function testExtension(extensionDirectory, label) {
     if (!optionsText.includes('Read your browsing history')) {
       throw new Error('Options permission disclosure is missing.');
     }
-    await options.click('input[name="idleMinutes"][value="60"]');
-    await options.click('button[type="submit"]');
-    await options.waitForFunction(
-      () => document.getElementById('status')?.textContent === 'Settings saved locally.',
-    );
-    await options.click('#open-reset');
-    await options.waitForFunction(() => document.getElementById('reset-dialog')?.open === true);
-    await options.click('#confirm-reset');
-    await options.waitForFunction(
-      () => document.getElementById('status')?.textContent === 'Settings reset to defaults.',
-    );
+    await runSmokeStep(label, 'save options', async () => {
+      await clickElement(options, 'input[name="idleMinutes"][value="60"]');
+      await clickElement(options, 'button[type="submit"]');
+      await options.waitForFunction(
+        () => document.getElementById('status')?.textContent === 'Settings saved locally.',
+      );
+    });
+    await runSmokeStep(label, 'reset options', async () => {
+      await clickElement(options, '#open-reset');
+      await options.waitForFunction(() => document.getElementById('reset-dialog')?.open === true);
+      await clickElement(options, '#confirm-reset');
+      await options.waitForFunction(
+        () => document.getElementById('status')?.textContent === 'Settings reset to defaults.',
+      );
+    });
 
     const backOptions = await browser.newPage();
     await backOptions.evaluateOnNewDocument(() => {
@@ -308,10 +341,12 @@ async function testExtension(extensionDirectory, label) {
       () => !document.getElementById('back-action')?.hasAttribute('disabled'),
     );
     await backOptions.bringToFront();
-    await Promise.all([
-      backOptions.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      backOptions.click('#back-action'),
-    ]);
+    await runSmokeStep(label, 'settings Back fallback', async () => {
+      await Promise.all([
+        backOptions.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+        clickElement(backOptions, '#back-action'),
+      ]);
+    });
     if (backOptions.url() !== `${extensionOrigin}/popup/index.html`) {
       throw new Error('Settings Back did not use the packaged popup fallback.');
     }

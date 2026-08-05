@@ -34,6 +34,12 @@ describe('Chrome smoke command', () => {
     expect(smokeScript).toContain('visibleOriginalUrl');
     expect(smokeScript).toContain('original-url');
     expect(smokeScript).toContain('waitForExtensionWorker');
+    expect(smokeScript).toContain('runSmokeStep');
+    expect(smokeScript).toContain('clickElement');
+    expect(smokeScript).toContain('settings Back fallback');
+    expect(smokeScript).not.toContain('await popup.click(');
+    expect(smokeScript).not.toContain('await options.click(');
+    expect(smokeScript).not.toContain("backOptions.click('#back-action')");
     expect(smokeScript).not.toContain('Native restore must be selected by default.');
     expect(smokeScript).toContain('Read your browsing history');
     expect(smokeScript).toContain('autoDiscardable');

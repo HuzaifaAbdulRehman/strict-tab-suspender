@@ -11,7 +11,8 @@
 Use a throwaway profile and pages with no unsaved form data.
 
 - Accept the required `tabs` warning, then confirm the manifest has exactly `alarms`, `storage`, and `tabs`, with no optional/host permissions.
-- Open tabs in two windows; confirm active, pinned, audible, already-discarded, and protected tabs remain untouched and no sweep exceeds ten serial outcomes.
+- Open tabs in two windows; confirm active, pinned, audible, and protected tabs remain untouched and no sweep exceeds ten serial outcomes.
+- Confirm native mode skips already-discarded tabs, while click mode may convert an eligible already-discarded HTTP(S) tab only through the verified path that never reloads the original page.
 - Confirm click-to-restore is the new/reset/migrated default, and an explicit schema-3 native choice persists.
 - Confirm the placeholder's browser-tab title is the sanitized original title, its complete URL link is visible/clickable, no favicon/network request occurs, and activation alone does not restore it.
 - Exercise **Suspend this tab now** and confirm it bypasses active/age only while all other state, exact-ID, supported-URL, pending-navigation, and race checks remain.

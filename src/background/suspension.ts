@@ -138,14 +138,16 @@ export function createParkingCoordinator(
         }
         return 'discarded';
       }
-      if (state.cancelled || updated.active === true) {
-        if (isExactPlaceholder(updated, tab.id, parkedUrl)) {
-          try {
-            await tabs.update(tab.id, { url: state.originalUrl });
-          } catch {
-            // The explicit restore page remains safe and usable if recovery loses the race.
-          }
-        }
+      const automaticParkingStayedValid =
+        state.cancelled === false &&
+        updated.id === tab.id &&
+        updated.active === false &&
+        (updated.url === parkedUrl || updated.pendingUrl === parkedUrl) &&
+        updated.pinned !== true &&
+        updated.audible !== true &&
+        updated.autoDiscardable !== false;
+      if (!automaticParkingStayedValid) {
+        await restoreExactPlaceholder(tab.id, parkedUrl, state.originalUrl);
         return 'skipped';
       }
       return 'discarded';

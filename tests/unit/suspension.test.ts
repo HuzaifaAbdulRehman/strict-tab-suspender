@@ -71,15 +71,19 @@ describe('click suspension coordinator', () => {
     const updateResult = new Promise<TabSnapshot>((resolve) => (releaseUpdate = resolve));
     const calls: string[] = [];
     let parkedUrl = '';
+    let current = tab(7, { active: false, url: original });
     const coordinator = createParkingCoordinator(
       {
         async get(id) {
           calls.push(`get:${id}`);
-          return tab(id, { active: false, url: original });
+          return current;
         },
         async update(id, update) {
           calls.push(`update:${id}:${update.url}`);
-          if (update.url === original) return tab(id, { active: true, url: original });
+          if (update.url === original) {
+            current = tab(id, { active: true, url: original });
+            return current;
+          }
           if (update.url === undefined) throw new Error('missing test URL');
           parkedUrl = update.url;
           markUpdateStarted();
@@ -96,7 +100,8 @@ describe('click suspension coordinator', () => {
     const parking = coordinator.park(tab(7));
     await updateStarted;
     await coordinator.handleActivated(7);
-    releaseUpdate(tab(7, { active: true, url: parkedUrl }));
+    current = tab(7, { active: true, url: parkedUrl });
+    releaseUpdate(current);
 
     await expect(parking).resolves.toBe('skipped');
     expect(calls).toContain(`update:7:${original}`);
@@ -149,6 +154,121 @@ describe('click suspension coordinator', () => {
     ).resolves.toBe('skipped');
 
     expect(state.calls).toEqual([]);
+  });
+
+  it.each([
+    ['changes identity', 'changed-id', true],
+    ['navigates elsewhere', 'changed-url', false],
+    ['has a different pending navigation', 'changed-pending', false],
+    ['becomes pinned', 'pinned', true],
+    ['becomes audible', 'audible', true],
+    ['becomes protected', 'protected', true],
+    ['becomes active', 'active', true],
+    ['does not report inactive state', 'missing-active', true],
+  ] as const)(
+    'fails closed when the automatic update result %s',
+    async (_label, mutation, shouldRestoreExactPlaceholder) => {
+      const calls: string[] = [];
+      let current = tab(7);
+      const differentUrl = 'https://changed.test/';
+      const differentPendingUrl = 'https://destination.test/';
+      const coordinator = createParkingCoordinator(
+        {
+          async get(id) {
+            calls.push(`get:${id}`);
+            return current;
+          },
+          async update(id, update) {
+            calls.push(`update:${id}:${update.url}`);
+            if (update.url === original) {
+              current = tab(id, { url: original });
+              return current;
+            }
+            if (update.url === undefined) throw new Error('missing test URL');
+
+            switch (mutation) {
+              case 'changed-id':
+                current = tab(id, { url: update.url });
+                return tab(id + 1, { url: update.url });
+              case 'changed-url':
+                current = tab(id, { url: differentUrl });
+                return current;
+              case 'changed-pending':
+                current = tab(id, { url: original, pendingUrl: differentPendingUrl });
+                return current;
+              case 'pinned':
+                current = tab(id, { url: update.url, pinned: true });
+                return current;
+              case 'audible':
+                current = tab(id, { url: update.url, audible: true });
+                return current;
+              case 'protected':
+                current = tab(id, { url: update.url, autoDiscardable: false });
+                return current;
+              case 'active':
+                current = tab(id, { url: update.url, active: true });
+                return current;
+              case 'missing-active': {
+                const withoutActive = tab(id, { url: update.url });
+                delete withoutActive.active;
+                current = withoutActive;
+                return current;
+              }
+            }
+          },
+          async discard() {
+            return current;
+          },
+        },
+        extensionPage,
+      );
+
+      await expect(coordinator.park(tab(7))).resolves.toBe('skipped');
+
+      const restoreCalls = calls.filter((call) => call === `update:7:${original}`);
+      expect(restoreCalls).toHaveLength(shouldRestoreExactPlaceholder ? 1 : 0);
+      if (shouldRestoreExactPlaceholder) {
+        expect(current).toEqual(expect.objectContaining({ id: 7, active: false, url: original }));
+        expect(current.pendingUrl).toBeUndefined();
+      }
+      if (mutation === 'changed-url') expect(current.url).toBe(differentUrl);
+      if (mutation === 'changed-pending') {
+        expect(current.pendingUrl).toBe(differentPendingUrl);
+      }
+    },
+  );
+
+  it('accepts an inactive exact automatic placeholder while navigation is pending', async () => {
+    const calls: string[] = [];
+    let current = tab(7);
+    const coordinator = createParkingCoordinator(
+      {
+        async get() {
+          return current;
+        },
+        async update(id, update) {
+          calls.push(`update:${id}:${update.url}`);
+          current = tab(id, { active: false, url: original, pendingUrl: update.url });
+          return current;
+        },
+        async discard() {
+          return current;
+        },
+      },
+      extensionPage,
+    );
+
+    await expect(coordinator.park(tab(7))).resolves.toBe('discarded');
+    expect(calls.filter((call) => call === `update:7:${original}`)).toEqual([]);
+  });
+
+  it('preserves click-mode conversion of an eligible already-discarded tab', async () => {
+    const state = harness(tab(7, { discarded: true }));
+
+    await expect(state.coordinator.park(tab(7, { discarded: true }))).resolves.toBe('discarded');
+
+    expect(state.calls[0]).toMatch(/^update:7:chrome-extension:\/\/id\/suspended\/index\.html#/u);
+    expect(state.calls.filter((call) => call === `update:7:${original}`)).toEqual([]);
   });
 
   it('discards only an inactive exact suspended-page sender', async () => {

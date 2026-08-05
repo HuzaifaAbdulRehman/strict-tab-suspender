@@ -37,6 +37,11 @@ describe('Chrome smoke command', () => {
     expect(smokeScript).toContain('runSmokeStep');
     expect(smokeScript).toContain('clickElement');
     expect(smokeScript).toContain('settings Back fallback');
+    expect(smokeScript).toContain('activate suspended tab without restoring');
+    expect(smokeScript).toContain("request.resourceType() === 'document'");
+    expect(smokeScript).toContain('requestUrl.startsWith(extensionOrigin)');
+    expect(smokeScript).toContain('allowedOriginalDocument');
+    expect(smokeScript).toContain('request.resourceType()');
     expect(smokeScript).not.toContain('await popup.click(');
     expect(smokeScript).not.toContain('await options.click(');
     expect(smokeScript).not.toContain("backOptions.click('#back-action')");

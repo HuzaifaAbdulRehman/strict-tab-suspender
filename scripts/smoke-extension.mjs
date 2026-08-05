@@ -106,15 +106,21 @@ async function startLocalPageServer() {
   };
 }
 
-function trackExtensionNetwork(page, extensionOrigin, unexpectedRequests) {
+function trackExtensionNetwork(page, extensionOrigin, allowedOriginalDocument, unexpectedRequests) {
   page.on('request', (request) => {
     const initiatorUrl = request.initiator().url;
+    if (!initiatorUrl?.startsWith(extensionOrigin)) return;
+
+    const requestUrl = request.url();
+    if (requestUrl.startsWith(extensionOrigin)) return;
     if (
-      initiatorUrl?.startsWith(extensionOrigin) &&
-      ['fetch', 'xhr', 'websocket', 'eventsource'].includes(request.resourceType())
-    ) {
-      unexpectedRequests.push(request.url());
-    }
+      request.resourceType() === 'document' &&
+      allowedOriginalDocument !== undefined &&
+      requestUrl === allowedOriginalDocument
+    )
+      return;
+
+    unexpectedRequests.push(`${request.resourceType()}: ${requestUrl}`);
   });
 }
 
@@ -163,7 +169,7 @@ async function testExtension(extensionDirectory, label) {
     const unexpectedRequests = [];
 
     const normalTab = await browser.newPage();
-    trackExtensionNetwork(normalTab, extensionOrigin, unexpectedRequests);
+    trackExtensionNetwork(normalTab, extensionOrigin, localPage.url, unexpectedRequests);
     await normalTab.goto(localPage.url);
     await normalTab.bringToFront();
     const normalTabId = await worker.evaluate(async () => {
@@ -173,7 +179,7 @@ async function testExtension(extensionDirectory, label) {
     if (normalTabId === undefined) throw new Error('Active test tab has no ID.');
 
     const popup = await browser.newPage();
-    trackExtensionNetwork(popup, extensionOrigin, unexpectedRequests);
+    trackExtensionNetwork(popup, extensionOrigin, undefined, unexpectedRequests);
     await popup.goto(`${extensionOrigin}/popup/index.html`);
     await normalTab.bringToFront();
     await popup.reload();
@@ -261,11 +267,29 @@ async function testExtension(extensionDirectory, label) {
     if ((await normalTab.title()) !== localPage.expectedOriginalTitle) {
       throw new Error('Suspended browser tab did not preserve the sanitized original title.');
     }
-    await normalTab.bringToFront();
-    await normalTab.waitForFunction(() => document.hasFocus());
-    if (normalTab.url() !== expectedSuspendedUrl) {
-      throw new Error('Suspended page restored merely because it was activated.');
-    }
+    await runSmokeStep(label, 'activate suspended tab without restoring', async () => {
+      await popup.bringToFront();
+      await popup.waitForFunction(() => document.hasFocus());
+      const inactiveState = await worker.evaluate(
+        async (tabId) => (await chrome.tabs.get(tabId)).active,
+        normalTabId,
+      );
+      if (inactiveState !== false) throw new Error('Suspended tab did not become inactive.');
+      if (normalTab.url() !== expectedSuspendedUrl) {
+        throw new Error('Suspended page restored while it was inactive.');
+      }
+
+      await normalTab.bringToFront();
+      await normalTab.waitForFunction(() => document.hasFocus());
+      const activeState = await worker.evaluate(
+        async (tabId) => (await chrome.tabs.get(tabId)).active,
+        normalTabId,
+      );
+      if (activeState !== true) throw new Error('Suspended tab did not become active again.');
+      if (normalTab.url() !== expectedSuspendedUrl) {
+        throw new Error('Suspended page restored merely because it was activated.');
+      }
+    });
     await normalTab.focus('#restore-tab');
     await normalTab.keyboard.press('Enter');
     await normalTab.waitForFunction(
@@ -303,7 +327,7 @@ async function testExtension(extensionDirectory, label) {
     });
 
     const options = await browser.newPage();
-    trackExtensionNetwork(options, extensionOrigin, unexpectedRequests);
+    trackExtensionNetwork(options, extensionOrigin, undefined, unexpectedRequests);
     await options.goto(`${extensionOrigin}/options/index.html`);
     await options.waitForFunction(() => document.getElementById('state')?.textContent === 'On');
     const clickSelected = await options.$eval(
@@ -335,7 +359,7 @@ async function testExtension(extensionDirectory, label) {
     await backOptions.evaluateOnNewDocument(() => {
       globalThis.close = () => undefined;
     });
-    trackExtensionNetwork(backOptions, extensionOrigin, unexpectedRequests);
+    trackExtensionNetwork(backOptions, extensionOrigin, undefined, unexpectedRequests);
     await backOptions.goto(`${extensionOrigin}/options/index.html`);
     await backOptions.waitForFunction(
       () => !document.getElementById('back-action')?.hasAttribute('disabled'),

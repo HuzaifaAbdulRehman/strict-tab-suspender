@@ -1,11 +1,11 @@
 # Web Store privacy disclosure draft
 
-Status: draft only. The 0.2.0 private beta is not published to the Chrome Web Store.
+Status: draft only. The 0.3.0 private beta is not published to the Chrome Web Store.
 
-Strict Tab Discarder does not collect, share, sell, or transmit user data. Local extension storage contains only validated settings and the latest aggregate sweep summary. It has no host permissions, network requests, telemetry, analytics, content scripts, remote code, accounts, or advertising.
+Strict Tab Discarder does not collect, share, sell, or transmit user data. Local extension storage contains only validated settings and the latest aggregate sweep summary. It has no host or optional permissions, network requests, telemetry, analytics, content scripts, remote code/configuration, accounts, or advertising.
 
-Required permissions are `alarms` and `storage`. Optional click-to-restore requests `tabs`, which Chrome describes as “Read your browsing history.” The extension does not use the history API. It uses URL access only to validate a credential-free HTTP(S) candidate and place the original address in that same tab's packaged suspended-page fragment.
+Required permissions are exactly `alarms`, `storage`, and `tabs`. Chrome describes `tabs` as “Read your browsing history” because it exposes current tab URL/title metadata. The extension does not call the History API or retain a browsing database. It uses this metadata only for the reviewed local placeholder, immediate suspension, and transient `autoDiscardable` protection flow.
 
-The fragment is percent-encoded, not encrypted, and can appear in Chrome's address bar, session restore, or history. It is not written to extension storage, rendered in the extension UI, logged, or transmitted. Per-tab protection changes only `autoDiscardable` and stores no website allowlist.
+One validated credential-free HTTP(S) URL and sanitized bounded title may exist in that tab's percent-encoded packaged fragment and visible placeholder. The complete URL is an explicit restore link and the title appears in the browser tab; no favicon is retrieved. Percent encoding is not encryption, and Chrome may expose or retain the fragment in its address bar, session restore, or history. URL/title/domain/tab identifiers are not written to extension storage, logged, synchronized, transmitted, or sent to telemetry.
 
 Before submission, re-answer the publisher dashboard's current data-use questions against the reviewed ZIP and hosted privacy policy. Account-specific submission is outside repository release work.

@@ -2,35 +2,23 @@
 
 ## Automated coverage
 
-- `npm run verify` runs format checking, linting, type checking, unit tests, integration tests, a clean build, packaging, and strict package validation.
-- `npm run smoke:chrome` loads both `dist/` and the generated ZIP into Chrome headlessly, then exercises popup controls, options persistence, reset confirmation, and extension startup.
+- `npm run verify` runs format checking, linting, type checking, unit tests, integration tests, a clean build, packaging, strict package validation, and reproducibility checks.
+- `npm run smoke:chrome` loads both `dist/` and the generated ZIP into Chrome headlessly and exercises click-default settings, immediate suspension, recognizable placeholders, inactive-to-active no-restore behavior, keyboard restoration, protection, Settings Back fallback, and no external extension request including favicon/image requests.
 - `npm run package` emits the ZIP plus a SHA-256 checksum, CycloneDX SBOM, and sorted archive inventory in `package/`.
 
 ## Manual Chrome 121+ cases
 
-Use a throwaway profile and test pages with no unsaved form data.
+Use a throwaway profile and pages with no unsaved form data.
 
-- Open tabs in two browser windows; confirm only eligible inactive tabs are considered and no more than ten are discarded per sweep.
-- Keep one tab pinned and one audible; confirm both remain protected.
-- Pause/resume automation and change every preset (15, 30, 60, and 120 minutes); reload the extension and confirm settings persist locally.
-- Put the device to sleep and wake it after the threshold; confirm a later alarm sweep remains guarded and no unexpected mass discard occurs.
-- Stop/restart the extension service worker from `chrome://extensions`, then confirm the startup grace period and alarm scheduling recover.
-- Trigger a manual sweep, reset settings through the options dialog, and confirm the UI exposes only aggregate results.
-
-### Owner-profile 15-minute click-to-restore acceptance
-
-Use ordinary pages with no unsaved form data:
-
-1. Build the extension, keep `dist/` at a stable path, load it unpacked, and reload it from `chrome://extensions` after each build.
-2. In Settings, select **Click to restore** and grant Chrome's optional `tabs` permission.
-3. Open two ordinary HTTP(S) tabs. Keep one active and leave the other inactive for at least 15 minutes plus one alarm interval.
-4. Confirm the inactive tab becomes the generic local suspended page while the active tab remains untouched.
-5. Activate the suspended tab and confirm the original site does not load automatically.
-6. Press **Restore tab** and confirm the original site loads.
-7. Open a fresh tab, choose **Protect this tab**, leave it inactive through another eligible sweep, and confirm it remains untouched.
-8. Restart Chrome and confirm an existing suspended page still requires **Restore tab** before the original site loads.
-9. Choose **Allow suspension** and confirm the tab becomes eligible again after the configured idle period.
+- Accept the required `tabs` warning, then confirm the manifest has exactly `alarms`, `storage`, and `tabs`, with no optional/host permissions.
+- Open tabs in two windows; confirm active, pinned, audible, already-discarded, and protected tabs remain untouched and no sweep exceeds ten serial outcomes.
+- Confirm click-to-restore is the new/reset/migrated default, and an explicit schema-3 native choice persists.
+- Confirm the placeholder's browser-tab title is the sanitized original title, its complete URL link is visible/clickable, no favicon/network request occurs, and activation alone does not restore it.
+- Exercise **Suspend this tab now** and confirm it bypasses active/age only while all other state, exact-ID, supported-URL, pending-navigation, and race checks remain.
+- Protect a tab, leave it inactive, and confirm it never suspends until **Allow suspension** is selected or the tab closes.
+- Pause/resume, test all presets, sleep/wake, terminate the service worker, restart Chrome, use Settings Back, and confirm persisted state/startup grace/alarm scheduling recover.
+- Confirm UI and stored data expose only validated settings and the latest aggregate summary, with no URL/title/domain/tab log.
 
 ## Release gate
 
-Follow `docs/RELEASE.md`. Inspect the final archive list and evidence files, verify the checksum, and record any environment where Chrome smoke could not run. Unsaved-form detection is not available.
+Follow `docs/RELEASE.md`. Inspect the final archive list, SBOM, checksum, and both Chrome modes. Unsaved-form detection is unavailable and alarm timing is approximate.

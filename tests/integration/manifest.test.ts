@@ -20,7 +20,7 @@ describe('extension manifest', () => {
     expect(manifest).toMatchObject({
       manifest_version: 3,
       name: 'Strict Tab Discarder',
-      version: '0.2.0',
+      version: '0.3.0',
       minimum_chrome_version: '121',
       permissions: ['alarms', 'storage', 'tabs'],
       background: { service_worker: 'background/service-worker.js', type: 'module' },

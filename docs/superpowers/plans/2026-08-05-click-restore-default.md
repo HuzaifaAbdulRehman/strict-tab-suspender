@@ -23,11 +23,13 @@
 ### Task 1: Migrate Settings to Click-to-Restore Defaults
 
 **Files:**
+
 - Modify: `tests/unit/settings.test.ts`
 - Modify: `src/shared/settings.ts`
 - Modify: settings fixtures in `tests/unit/*.test.ts` and `tests/integration/*.test.ts`
 
 **Interfaces:**
+
 - Produces: `Settings { schemaVersion: 3; enabled: boolean; idleMinutes: IdleMinutes; restoreBehavior: RestoreBehavior }`.
 - Preserves: `getSettings`, `saveSettings`, and `resetSettings` signatures.
 
@@ -42,9 +44,11 @@ expect(DEFAULT_SETTINGS).toEqual({
 });
 
 await expect(
-  getSettings(storageWith({
-    settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
-  })),
+  getSettings(
+    storageWith({
+      settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
+    }),
+  ),
 ).resolves.toEqual({
   schemaVersion: 3,
   enabled: false,
@@ -79,6 +83,7 @@ git commit -m "feat: default to click restore"
 ### Task 2: Make Tabs a Required Reviewed Permission
 
 **Files:**
+
 - Modify: `tests/integration/manifest.test.ts`
 - Modify: `tests/unit/verify-package.test.ts`
 - Modify: `src/manifest.json`
@@ -90,6 +95,7 @@ git commit -m "feat: default to click restore"
 - Modify: `tests/unit/service-worker.test.ts`
 
 **Interfaces:**
+
 - Manifest required permissions become `['alarms', 'storage', 'tabs']`.
 - Manifest exposes no `optional_permissions` key.
 - `createOptionsController(view, messenger)` no longer accepts an optional-permission adapter.
@@ -99,9 +105,9 @@ git commit -m "feat: default to click restore"
 ```ts
 expect(manifest.permissions).toEqual(['alarms', 'storage', 'tabs']);
 expect(manifest.optional_permissions).toBeUndefined();
-expect(() =>
-  validatePackageManifest({ ...validManifest, optional_permissions: ['tabs'] }),
-).toThrow('Package manifest must not declare optional permissions.');
+expect(() => validatePackageManifest({ ...validManifest, optional_permissions: ['tabs'] })).toThrow(
+  'Package manifest must not declare optional permissions.',
+);
 ```
 
 - [ ] **Step 2: Write failing options tests for required permission behavior**
@@ -138,6 +144,7 @@ git commit -m "feat: require tabs for default restore"
 ### Task 3: Add Recognizable Placeholders, Immediate Suspension, Back Navigation, and Clear Protection Copy
 
 **Files:**
+
 - Create: `src/options/settings-navigation.ts`
 - Create: `tests/unit/settings-navigation.test.ts`
 - Modify: `src/shared/suspended-url.ts`
@@ -159,6 +166,7 @@ git commit -m "feat: require tabs for default restore"
 - Modify: `scripts/verify-package.mjs`
 
 **Interfaces:**
+
 - Produces: `returnFromSettings(port: SettingsNavigationPort): void`.
 - Produces: `SuspendedPayload { originalUrl: string; title: string }`, encoded by `buildSuspendedPageUrl(originalUrl, title, extensionPageUrl)` and decoded by `readSuspendedPayloadFromHash(hash)`.
 - Adds request `{ type: 'suspendCurrentTab' }` and response `currentTabAction?: 'suspended' | 'unsupported-tab' | 'protected-tab' | 'failed'`.
@@ -179,7 +187,10 @@ it('attempts close before scheduling the packaged popup fallback', () => {
   returnFromSettings({
     close: () => calls.push('close'),
     navigateToPopup: () => calls.push('popup'),
-    scheduleFallback: (callback) => { calls.push('schedule'); callback(); },
+    scheduleFallback: (callback) => {
+      calls.push('schedule');
+      callback();
+    },
   });
   expect(calls).toEqual(['close', 'schedule', 'popup']);
 });
@@ -219,10 +230,12 @@ git commit -m "feat: add settings back navigation"
 ### Task 4: Update Real-Chrome Coverage
 
 **Files:**
+
 - Modify: `scripts/smoke-extension.mjs`
 - Modify: `tests/unit/smoke-extension.test.ts`
 
 **Interfaces:**
+
 - Chrome smoke expects click-to-restore selected by default.
 - Chrome smoke proves the placeholder shows the sanitized original title and complete URL and that **Suspend this tab now** parks the intended active tab.
 - Chrome smoke exercises the Back fallback without depending on animation-frame polling in a background tab.
@@ -255,6 +268,7 @@ git commit -m "test: verify click restore defaults"
 ### Task 5: Document and Verify Version 0.3.0
 
 **Files:**
+
 - Create: `docs/adr/0003-required-tabs-default-restore.md`
 - Modify: `AGENTS.md`, `README.md`, `PRIVACY.md`, `SECURITY.md`, `CHANGELOG.md`
 - Modify: `docs/ARCHITECTURE.md`, `docs/PERMISSIONS.md`, `docs/PRIVACY-DATA-FLOW.md`, `docs/LOCAL-INSTALL.md`, `docs/PRODUCT.md`, `docs/TEST-PLAN.md`, `docs/RELEASE.md`, `docs/WEB-STORE.md`, `docs/privacy-disclosure-draft.md`, `docs/store-listing-draft.md`
@@ -262,6 +276,7 @@ git commit -m "test: verify click restore defaults"
 - Verify generated: `dist/`, `package/strict-tab-suspender-0.3.0.zip` and integrity artifacts
 
 **Interfaces:**
+
 - Produces version `0.3.0` consistently across package metadata, manifest, documentation and artifacts.
 
 - [ ] **Step 1: Write failing tooling/documentation assertions**

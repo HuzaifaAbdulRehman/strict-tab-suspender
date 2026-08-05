@@ -103,6 +103,54 @@ describe('click suspension coordinator', () => {
     expect(calls).not.toContain('discard:7');
   });
 
+  it('cancels an exact pending placeholder when Chrome reports activation during navigation', async () => {
+    const calls: string[] = [];
+    let current = tab(7);
+    const coordinator = createParkingCoordinator(
+      {
+        async get(id) {
+          calls.push(`get:${id}`);
+          return current;
+        },
+        async update(id, update) {
+          calls.push(`update:${id}:${update.url}`);
+          if (update.url === original) {
+            current = tab(id, { active: true, url: original });
+          } else {
+            current = {
+              ...current,
+              id,
+              active: true,
+              url: original,
+              pendingUrl: update.url,
+            };
+          }
+          return current;
+        },
+        async discard() {
+          return current;
+        },
+      },
+      extensionPage,
+    );
+
+    await expect(coordinator.park(tab(7))).resolves.toBe('skipped');
+
+    expect(current).toEqual(expect.objectContaining({ active: true, url: original }));
+    expect(current.pendingUrl).toBeUndefined();
+    expect(calls.filter((call) => call === `update:7:${original}`)).toHaveLength(1);
+  });
+
+  it('does not overwrite a pre-existing pending navigation during automatic parking', async () => {
+    const state = harness(tab(7, { pendingUrl: 'https://destination.test/' }));
+
+    await expect(
+      state.coordinator.park(tab(7, { pendingUrl: 'https://destination.test/' })),
+    ).resolves.toBe('skipped');
+
+    expect(state.calls).toEqual([]);
+  });
+
   it('discards only an inactive exact suspended-page sender', async () => {
     const state = harness();
     await state.coordinator.park(tab(7));
@@ -223,6 +271,56 @@ describe('immediate current-tab suspension', () => {
     expect(current.active).toBe(true);
     expect(current.url).toMatch(/^chrome-extension:\/\/id\/suspended\/index\.html#/u);
     expect(calls.filter((call) => call === `update:9:${original}`)).toEqual([]);
+  });
+
+  it("accepts Chrome's pending URL while current-tab suspension navigation is uncommitted", async () => {
+    const calls: string[] = [];
+    let current = tab(9, { active: true, lastAccessed: Date.now() });
+    const tabs = {
+      async query() {
+        calls.push('query-active');
+        return [current];
+      },
+      async get(id: number) {
+        calls.push(`get:${id}`);
+        return current;
+      },
+      async update(id: number, update: { url?: string }) {
+        calls.push(`update:${id}:${update.url}`);
+        if (update.url === original) {
+          current = tab(id, { active: true, url: original });
+        } else {
+          current = {
+            ...current,
+            id,
+            url: original,
+            pendingUrl: update.url,
+          };
+        }
+        return current;
+      },
+      async discard() {
+        return current;
+      },
+    };
+    const coordinator = createParkingCoordinator(tabs, extensionPage);
+
+    await expect(suspendCurrentTabNow(tabs, coordinator)).resolves.toBe('suspended');
+
+    expect(current.url).toBe(original);
+    expect(current.pendingUrl).toMatch(/^chrome-extension:\/\/id\/suspended\/index\.html#/u);
+    expect(calls.filter((call) => call === `update:9:${original}`)).toEqual([]);
+  });
+
+  it('fails closed when the selected tab already has a different pending navigation', async () => {
+    const queried = tab(9, { active: true });
+    const state = immediateHarness(
+      [queried],
+      tab(9, { active: true, pendingUrl: 'https://destination.test/' }),
+    );
+
+    await expect(state.run()).resolves.toBe('failed');
+    expect(state.calls).toEqual(['query-active', 'get:9']);
   });
 
   it('does not overwrite a different placeholder URL when current-action activation cancels', async () => {

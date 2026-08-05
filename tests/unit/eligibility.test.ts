@@ -15,6 +15,15 @@ const eligibleTab: TabSnapshot = {
 };
 
 describe('evaluateTab', () => {
+  it('allows an already-discarded tab only when click-mode conversion is requested', () => {
+    expect(evaluateTab({ ...eligibleTab, discarded: true }, now, 15)).toEqual({
+      eligible: false,
+      reason: 'already-discarded',
+    });
+    expect(
+      evaluateTab({ ...eligibleTab, discarded: true }, now, 15, { allowAlreadyDiscarded: true }),
+    ).toEqual({ eligible: true });
+  });
   it('accepts a tab at the exact fifteen-minute idle boundary', () => {
     expect(evaluateTab(eligibleTab, now, 15)).toEqual({ eligible: true });
   });

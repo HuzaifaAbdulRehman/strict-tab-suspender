@@ -24,6 +24,12 @@ describe('Chrome smoke command', () => {
     expect(smokeScript).toContain('headless: true');
     expect(smokeScript).not.toContain('headless: false');
     expect(smokeScript).toContain('browser.waitForTarget');
+    expect(smokeScript).toContain('EXPECTED_POPUP_FOCUS_ORDER');
+    expect(smokeScript).toContain("'protect-tab'");
+    expect(smokeScript).toContain('buildSmokeSuspendedUrl');
+    expect(smokeScript).toContain('suspended/index.html#v=1&url=');
+    expect(smokeScript).toContain('Read your browsing history');
+    expect(smokeScript).toContain('autoDiscardable');
     expect(smokeScript).not.toContain('setTimeout(resolve, 750)');
   });
 });

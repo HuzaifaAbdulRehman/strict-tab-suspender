@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-05
+
+### Added
+
+- Optional click-to-restore mode that parks eligible HTTP(S) tabs on a packaged lightweight page and restores only after an explicit button or keyboard action.
+- Per-tab **Protect this tab** / **Allow suspension** controls backed by Chrome's transient `autoDiscardable` flag.
+- Self-contained suspended-address recovery across service-worker and browser restarts, with local recovery instructions.
+- Real-Chrome coverage for no-auto-restore behavior, keyboard restore, protection toggles, permission disclosure, packaged/unpacked builds, and unexpected extension network requests.
+
+### Changed
+
+- Migrated local settings to schema version 2 while preserving valid 0.1.x settings as native restore mode.
+- Updated popup terminology from discarded to suspended while preserving the aggregate storage field for compatibility.
+- Expanded privacy, permission, architecture, recovery, release, and future Web Store documentation for the reviewed optional boundary.
+
+### Security
+
+- Kept required permissions exactly `alarms` and `storage`; added only optional `tabs`, requested from Settings during a direct user action.
+- Restricted optional URL handling to credential-free HTTP(S) addresses, a 65,536-character placeholder limit, immediate revalidation, activation-race recovery, and no extension-storage or network URL database.
+- Continued to prohibit host permissions, content scripts, history API access, remote code, telemetry, accounts, ads, and network services.
+
 ## [0.1.0] - 2026-08-04
 
 ### Added

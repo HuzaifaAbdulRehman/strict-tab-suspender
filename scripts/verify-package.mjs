@@ -15,6 +15,7 @@ const expectedPackageEntries = new Set([
   'manifest.json',
   'background/eligibility.js',
   'background/service-worker.js',
+  'background/suspension.js',
   'background/sweep.js',
   'icons/icon-16.png',
   'icons/icon-32.png',
@@ -30,8 +31,14 @@ const expectedPackageEntries = new Set([
   'popup/styles.css',
   'shared/messages.js',
   'shared/settings.js',
+  'shared/suspended-url.js',
+  'suspended/index.html',
+  'suspended/index.js',
+  'suspended/styles.css',
+  'suspended/suspended-controller.js',
 ]);
 const expectedPermissions = ['alarms', 'storage'];
+const expectedOptionalPermissions = ['tabs'];
 const expectedExtensionPageCsp =
   "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'self'; connect-src 'none'";
 
@@ -49,10 +56,12 @@ export function validatePackageManifest(manifest) {
     throw new Error('Package manifest must not declare content scripts.');
   }
   if (
-    manifest.optional_permissions !== undefined ||
-    manifest.optional_host_permissions !== undefined
+    JSON.stringify(manifest.optional_permissions) !== JSON.stringify(expectedOptionalPermissions)
   ) {
-    throw new Error('Package manifest must not declare optional permissions.');
+    throw new Error('Package optional permissions must be exactly tabs.');
+  }
+  if (manifest.optional_host_permissions !== undefined) {
+    throw new Error('Package manifest must not declare optional host permissions.');
   }
   if (manifest.web_accessible_resources !== undefined) {
     throw new Error('Package manifest must not declare web-accessible resources.');

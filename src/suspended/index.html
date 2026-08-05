@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Suspended tab — Strict Tab Discarder</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="index.js"></script>
+  </head>
+  <body>
+    <main class="suspended-shell">
+      <img src="../icons/icon-128.png" alt="" width="72" height="72" />
+      <p class="eyebrow">STRICT TAB DISCARDER</p>
+      <h1>This tab is suspended</h1>
+      <p class="description">
+        Its page stays asleep until you explicitly restore it. Save in-page work before allowing
+        suspension because unsaved forms cannot be detected.
+      </p>
+      <button id="restore-tab" type="button">Restore tab</button>
+      <p id="status" class="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>

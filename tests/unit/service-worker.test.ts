@@ -19,7 +19,7 @@ function storageWith(
   enabled = true,
 ): LocalStorageArea & { data: Record<string, unknown>; writes: Record<string, unknown>[] } {
   const data: Record<string, unknown> = {
-    settings: { schemaVersion: 1, enabled, idleMinutes: 15 },
+    settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
   };
   const writes: Record<string, unknown>[] = [];
   return {
@@ -44,6 +44,20 @@ function dependencies(
     calls,
     storage,
     now: () => now,
+    async hasTabsPermission() {
+      calls.push('permission');
+      return true;
+    },
+    async park(tab) {
+      calls.push(`park:${tab.id}`);
+      return 'discarded';
+    },
+    async handleActivated(tabId) {
+      calls.push(`activated:${tabId}`);
+    },
+    async handlePageReady(tabId, senderUrl) {
+      calls.push(`ready:${tabId}:${senderUrl}`);
+    },
     alarms: {
       async get(name) {
         calls.push(`get:${name}`);
@@ -58,7 +72,11 @@ function dependencies(
       },
     },
     tabs: {
-      async query() {
+      async query(queryInfo) {
+        if (queryInfo?.active === true) {
+          calls.push('query-active');
+          return [{ id: 9, active: true, autoDiscardable: true }];
+        }
         calls.push('query');
         return [];
       },
@@ -68,16 +86,72 @@ function dependencies(
       async discard() {
         throw new Error('not reached');
       },
+      async update(id, update) {
+        calls.push(`update:${id}:${String(update.autoDiscardable)}`);
+        return {
+          id,
+          active: true,
+          autoDiscardable: update.autoDiscardable ?? true,
+          ...(update.url === undefined ? {} : { url: update.url }),
+        };
+      },
     },
   };
 }
 
 describe('service worker scheduler', () => {
+  it('reports optional permission and current-tab protection state', async () => {
+    const deps = dependencies();
+
+    await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toMatchObject({
+      tabsPermissionGranted: true,
+      currentTabProtection: { supported: true, protected: false },
+    });
+    expect(deps.calls).toContain('query-active');
+  });
+
+  it('protects only the freshly queried active tab', async () => {
+    const deps = dependencies();
+
+    await expect(
+      handleExtensionMessage({ type: 'setCurrentTabProtection', protected: true }, deps),
+    ).resolves.toMatchObject({
+      currentTabProtection: { supported: true, protected: true },
+    });
+    expect(deps.calls).toContain('update:9:false');
+  });
+
+  it('does not enable click restore when optional tabs permission is absent', async () => {
+    const deps = dependencies();
+    deps.hasTabsPermission = async () => false;
+
+    await expect(
+      handleExtensionMessage({ type: 'setRestoreBehavior', restoreBehavior: 'click' }, deps),
+    ).resolves.toMatchObject({
+      actionError: 'tabs-permission-required',
+      settings: { restoreBehavior: 'native' },
+    });
+  });
+
+  it('accepts page readiness only with an explicit sender tab and URL', async () => {
+    const deps = dependencies();
+    const senderUrl = 'chrome-extension://id/suspended/index.html#v=1';
+
+    await handleExtensionMessage({ type: 'suspensionPageReady' }, deps, {
+      tab: { id: 7 },
+      url: senderUrl,
+    });
+
+    expect(deps.calls).toContain(`ready:7:${senderUrl}`);
+  });
+
   it('serves popup actions through local-only worker APIs and returns aggregate state', async () => {
     const deps = dependencies();
 
     await expect(handleExtensionMessage({ type: 'getPopupState' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+      tabsPermissionGranted: true,
+      currentTabProtection: { supported: true, protected: false },
     });
     await expect(handleExtensionMessage({ type: 'manualSweep' }, deps)).resolves.toEqual({
       summary: {
@@ -89,18 +163,18 @@ describe('service worker scheduler', () => {
       },
     });
     await expect(handleExtensionMessage({ type: 'pauseAutomation' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: false, idleMinutes: 15, restoreBehavior: 'native' },
     });
     await expect(
       handleExtensionMessage({ type: 'saveSettings', idleMinutes: 60 }, deps),
     ).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: false, idleMinutes: 60 },
+      settings: { schemaVersion: 2, enabled: false, idleMinutes: 60, restoreBehavior: 'native' },
     });
     await expect(handleExtensionMessage({ type: 'resetSettings' }, deps)).resolves.toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
     });
     expect(deps.storage.data).toEqual({
-      settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
       latestSweepSummary: {
         checkedAt: now,
         evaluatedCount: 0,
@@ -159,8 +233,22 @@ describe('service worker scheduler', () => {
     await resumeAutomation(deps);
 
     expect(deps.storage.writes).toEqual([
-      { settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 } },
-      { settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } },
+      {
+        settings: {
+          schemaVersion: 2,
+          enabled: false,
+          idleMinutes: 15,
+          restoreBehavior: 'native',
+        },
+      },
+      {
+        settings: {
+          schemaVersion: 2,
+          enabled: true,
+          idleMinutes: 15,
+          restoreBehavior: 'native',
+        },
+      },
     ]);
     expect(deps.calls).toEqual([
       'clear:strict-tab-discarder-sweep',
@@ -233,7 +321,7 @@ describe('service worker module lifecycle', () => {
 
   it('initializes listener registrations independently on each worker start', async () => {
     const startWorker = () => {
-      const listeners = { installed: 0, startup: 0, changed: 0, alarm: 0 };
+      const listeners = { installed: 0, startup: 0, changed: 0, alarm: 0, activated: 0 };
       const browser = {
         storage: {
           local: {
@@ -272,8 +360,22 @@ describe('service worker module lifecycle', () => {
           async discard() {
             return { id: 1 };
           },
+          async update(id: number, update: Record<string, unknown>) {
+            return { id, ...update };
+          },
+          onActivated: {
+            addListener: () => {
+              listeners.activated += 1;
+            },
+          },
+        },
+        permissions: {
+          async contains() {
+            return false;
+          },
         },
         runtime: {
+          getURL: (path: string) => `chrome-extension://id/${path}`,
           onInstalled: {
             addListener: () => {
               listeners.installed += 1;
@@ -293,7 +395,19 @@ describe('service worker module lifecycle', () => {
     const initialListeners = startWorker();
     const reloadedListeners = startWorker();
 
-    expect(initialListeners).toEqual({ installed: 1, startup: 1, changed: 1, alarm: 1 });
-    expect(reloadedListeners).toEqual({ installed: 1, startup: 1, changed: 1, alarm: 1 });
+    expect(initialListeners).toEqual({
+      installed: 1,
+      startup: 1,
+      changed: 1,
+      alarm: 1,
+      activated: 1,
+    });
+    expect(reloadedListeners).toEqual({
+      installed: 1,
+      startup: 1,
+      changed: 1,
+      alarm: 1,
+      activated: 1,
+    });
   });
 });

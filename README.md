@@ -1,22 +1,24 @@
 # Strict Tab Discarder
 
-Strict Tab Discarder is a private-first Chrome Manifest V3 extension for Chrome 121+ that discards eligible inactive tabs to reduce memory pressure.
+Strict Tab Discarder is a private-first Chrome Manifest V3 extension for Chrome 121+ that suspends eligible inactive tabs to reduce memory pressure.
 
-It is intentionally narrow: there are no host permissions, network calls, telemetry, content scripts, remote code, accounts, or ads. The only manifest permissions are `alarms` and `storage`.
+It has no host permissions, network calls, telemetry, content scripts, remote code, accounts, or ads. Required permissions are `alarms` and `storage`; optional click-to-restore uses `tabs` only after a user grant.
 
 ## Behavior
 
-The extension is enabled by default with a 15-minute inactivity threshold. Available presets are 15, 30, 60, and 120 minutes. Active, pinned, audible, already-discarded, and not-auto-discardable tabs are protected. It waits five minutes after startup before automation and limits a sweep to 10 serial discards.
+The extension is enabled by default with a 15-minute inactivity threshold. Presets are 15, 30, 60, and 120 minutes. Active, pinned, audible, and not-auto-discardable tabs are protected. It waits five minutes after startup and limits a sweep to 10 serial outcomes.
 
-Settings stay locally in Chrome storage. The only retained operational result is the latest aggregate sweep summary; URLs, titles, favicons, domains, tab IDs, and browsing history are never stored.
+Native mode uses Chrome's normal reload-on-activation behavior. Optional click mode shows a packaged lightweight page and waits for **Restore tab**. Chrome labels the optional permission “Read your browsing history”; this extension uses it only to put a validated HTTP(S) original address in that tab's percent-encoded placeholder fragment. It does not use the history API, extension storage, or a network service for that address. Percent encoding is not encryption, and Chrome may retain the placeholder in its address bar/session/history.
+
+The popup can protect just the current tab by toggling Chrome's transient `autoDiscardable` flag. Protection ends with the tab and is not a domain allowlist.
 
 > Important: Chrome does not expose a reliable way to identify every unsaved form. Strict Tab Discarder cannot detect unsaved forms, so users should save important work before relying on automatic discarding.
 
 ## Interface
 
-The compact extension popup shows whether automatic discarding is On or Paused, the current inactivity limit, the latest aggregate sweep result, and actions to run a sweep or pause/resume automation. It links only to the packaged local settings/privacy page.
+The popup shows whether automatic suspension is On or Paused, the inactivity limit, aggregate sweep result, manual sweep, pause/resume, and Protect/Allow actions without showing tab metadata.
 
-The settings page offers the 15, 30, 60, and 120 minute presets, resets to defaults after confirmation, and explains timing, privacy, reload behavior, protected pinned/audible tabs, and the unsaved-work limitation.
+Settings controls the timeout and native/click restore behavior, provides the exact optional-permission disclosure, and resets to native defaults after confirmation.
 
 ## Development
 

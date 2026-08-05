@@ -18,28 +18,95 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function view(): PopupView & { values: Record<string, string>; busy: boolean } {
+function view(): PopupView & {
+  values: Record<string, string>;
+  busy: boolean;
+  protectionAvailable: boolean;
+} {
   const values: Record<string, string> = {};
   return {
     values,
     busy: false,
+    protectionAvailable: true,
     setText(name, value) {
       values[name] = value;
     },
     setBusy(value) {
       this.busy = value;
     },
+    setProtectionAvailable(value) {
+      this.protectionAvailable = value;
+    },
   };
 }
 
 describe('popup controller', () => {
+  it('renders and toggles current-tab protection without tab metadata', async () => {
+    const popup = view();
+    const sent: unknown[] = [];
+    const controller = createPopupController(popup, {
+      async sendMessage(message) {
+        sent.push(message);
+        if (message.type === 'getPopupState') {
+          return {
+            settings: {
+              schemaVersion: 2,
+              enabled: true,
+              idleMinutes: 15,
+              restoreBehavior: 'native',
+            },
+            currentTabProtection: { supported: true, protected: false },
+          };
+        }
+        return { currentTabProtection: { supported: true, protected: true } };
+      },
+    });
+
+    await controller.load();
+    expect(popup.values.protectionAction).toBe('Protect this tab');
+    await controller.toggleProtection();
+
+    expect(sent.at(-1)).toEqual({ type: 'setCurrentTabProtection', protected: true });
+    expect(popup.values.protectionAction).toBe('Allow suspension');
+    expect(popup.values.protectionDescription).not.toMatch(/example|https|title|domain/iu);
+  });
+
+  it('disables protection for unsupported tabs', async () => {
+    const popup = view();
+    const controller = createPopupController(popup, {
+      async sendMessage() {
+        return {
+          settings: {
+            schemaVersion: 2,
+            enabled: true,
+            idleMinutes: 15,
+            restoreBehavior: 'native',
+          },
+          currentTabProtection: { supported: false, protected: false },
+        };
+      },
+    });
+
+    await controller.load();
+
+    expect(popup.protectionAvailable).toBe(false);
+  });
+
   it('renders an enabled state, configured idle period, and aggregate-only latest summary', async () => {
     const popup = view();
     const controller = createPopupController(
       popup,
       {
         async sendMessage() {
-          return { settings: { schemaVersion: 1, enabled: true, idleMinutes: 30 }, summary };
+          return {
+            settings: {
+              schemaVersion: 2,
+              enabled: true,
+              idleMinutes: 30,
+              restoreBehavior: 'native',
+            },
+            summary,
+          };
         },
       },
       { formatCheckedAt: () => 'November 14, 2023 at 10:13 PM' },
@@ -49,10 +116,10 @@ describe('popup controller', () => {
 
     expect(popup.values).toMatchObject({
       state: 'On',
-      pauseAction: 'Pause automatic discarding',
-      description: 'Inactive tabs are discarded after about 30 minutes.',
+      pauseAction: 'Pause automatic suspension',
+      description: 'Inactive tabs are suspended after about 30 minutes.',
       summary:
-        'Last checked: November 14, 2023 at 10:13 PM. Evaluated 4, discarded 2, skipped 1, failed 1.',
+        'Last checked: November 14, 2023 at 10:13 PM. Evaluated 4, suspended 2, skipped 1, failed 1.',
       status: '',
     });
   });
@@ -71,7 +138,7 @@ describe('popup controller', () => {
 
     expect(sent).toEqual([{ type: 'manualSweep' }]);
     expect(popup.values.status).toBe(
-      'Sweep complete: evaluated 4, discarded 3, skipped 1, failed 0.',
+      'Sweep complete: evaluated 4, suspended 3, skipped 1, failed 0.',
     );
     expect(popup.busy).toBe(false);
   });
@@ -82,42 +149,58 @@ describe('popup controller', () => {
     const controller = createPopupController(popup, {
       async sendMessage(message) {
         enabled = message.type === 'pauseAutomation' ? false : true;
-        return { settings: { schemaVersion: 1, enabled, idleMinutes: 15 } };
+        return {
+          settings: { schemaVersion: 2, enabled, idleMinutes: 15, restoreBehavior: 'native' },
+        };
       },
     });
 
     await controller.toggleAutomation();
     expect(popup.values).toMatchObject({
       state: 'Paused',
-      pauseAction: 'Resume automatic discarding',
+      pauseAction: 'Resume automatic suspension',
     });
 
     await controller.toggleAutomation();
-    expect(popup.values).toMatchObject({ state: 'On', pauseAction: 'Pause automatic discarding' });
+    expect(popup.values).toMatchObject({ state: 'On', pauseAction: 'Pause automatic suspension' });
   });
 
   it('keeps a newer pause result when the initial load resolves afterwards', async () => {
     const popup = view();
     const initialState = deferred<{
-      settings: { schemaVersion: 1; enabled: boolean; idleMinutes: 15 };
+      settings: {
+        schemaVersion: 2;
+        enabled: boolean;
+        idleMinutes: 15;
+        restoreBehavior: 'native';
+      };
     }>();
     const controller = createPopupController(popup, {
       async sendMessage(message) {
         if (message.type === 'getPopupState') return initialState.promise;
-        return { settings: { schemaVersion: 1, enabled: false, idleMinutes: 15 } };
+        return {
+          settings: {
+            schemaVersion: 2,
+            enabled: false,
+            idleMinutes: 15,
+            restoreBehavior: 'native',
+          },
+        };
       },
     });
 
     const loading = controller.load();
     expect(popup.busy).toBe(true);
     await controller.toggleAutomation();
-    initialState.resolve({ settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 } });
+    initialState.resolve({
+      settings: { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
+    });
     await loading;
 
     expect(popup.values).toMatchObject({
       state: 'Paused',
-      pauseAction: 'Resume automatic discarding',
-      status: 'Automatic discarding is paused.',
+      pauseAction: 'Resume automatic suspension',
+      status: 'Automatic suspension is paused.',
     });
     expect(popup.busy).toBe(false);
   });
@@ -128,7 +211,12 @@ describe('popup controller', () => {
       async sendMessage(message) {
         if (message.type === 'getPopupState') {
           return {
-            settings: { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+            settings: {
+              schemaVersion: 2,
+              enabled: true,
+              idleMinutes: 15,
+              restoreBehavior: 'native',
+            },
             summary: { checkedAt: 'private title', discardedCount: 1 },
           };
         }

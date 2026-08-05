@@ -19,20 +19,29 @@
 
       <section class="card state-card" aria-labelledby="automation-heading">
         <div>
-          <p id="automation-heading" class="label">Automatic discarding</p>
+          <p id="automation-heading" class="label">Automatic suspension</p>
           <p id="state" class="state">Loading…</p>
         </div>
         <button id="pause-action" class="secondary" type="button" disabled>
-          Pause automatic discarding
+          Pause automatic suspension
         </button>
       </section>
 
       <p id="description" class="description">
-        Inactive tabs are discarded after about 15 minutes.
+        Inactive tabs are suspended after about 15 minutes.
       </p>
       <button id="discard-now" class="primary" type="button" disabled>
-        Discard eligible tabs now
+        Suspend eligible tabs now
       </button>
+      <section class="card protection-card" aria-labelledby="protection-heading">
+        <div>
+          <p id="protection-heading" class="label">Current tab</p>
+          <p id="protection-description">
+            Protection applies only to this tab and ends when the tab is closed.
+          </p>
+        </div>
+        <button id="protect-tab" class="secondary" type="button" disabled>Protect this tab</button>
+      </section>
       <p id="status" class="status" aria-live="polite"></p>
 
       <section class="card summary-card" aria-labelledby="summary-heading">
@@ -44,7 +53,10 @@
         <strong>Save your work first.</strong> This extension cannot detect unsaved forms or
         in-memory work.
       </aside>
-      <p class="reload-note">Discarded tabs remain in the tab bar and reload when opened.</p>
+      <p class="reload-note">
+        Suspended tabs remain visible. Native mode reloads when opened; click mode waits for Restore
+        tab.
+      </p>
 
       <nav aria-label="Extension links">
         <a href="../options/index.html">Settings</a>

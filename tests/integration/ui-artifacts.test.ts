@@ -15,9 +15,11 @@ describe('user interface artifacts', () => {
     const popup = await readSource('popup/index.html');
 
     expect(popup).toContain('Strict Tab Discarder');
-    expect(popup).toContain('Inactive tabs are discarded after about');
-    expect(popup).toContain('Discard eligible tabs now');
-    expect(popup).toContain('Discarded tabs remain in the tab bar and reload when opened.');
+    expect(popup).toContain('Inactive tabs are suspended after about');
+    expect(popup).toContain('Suspend eligible tabs now');
+    expect(popup).toContain('Protect this tab');
+    expect(popup).toContain('Protection applies only to this tab and ends when the tab is closed.');
+    expect(popup).toMatch(/Suspended tabs remain visible[\s\S]*click mode waits for Restore/u);
     expect(popup).toMatch(/cannot detect unsaved forms or\s+in-memory work/u);
     expect(popup).toMatch(/id="status"[^>]*aria-live="polite"/u);
     expect(popup).toMatch(/<button[^>]*type="button"/u);
@@ -39,6 +41,11 @@ describe('user interface artifacts', () => {
       'Pinned and audible tabs are always protected and cannot be disabled.',
     );
     expect(options).toContain('cannot detect unsaved forms or in-memory work');
+    expect(options).toContain('name="restoreBehavior" value="native"');
+    expect(options).toContain('name="restoreBehavior" value="click"');
+    expect(options).toContain('Read your browsing history');
+    expect(options).toContain('It is not encrypted');
+    expect(options).toContain('not saved in extension storage or sent over the network');
     expect(options).toContain('<dialog');
     expect(options).toContain('<fieldset>');
     expect(options).toMatch(/<label>\s*<input type="radio"/u);
@@ -46,6 +53,18 @@ describe('user interface artifacts', () => {
     expect(options).toMatch(/id="status"[^>]*aria-live="polite"/u);
     expect(options).not.toMatch(/\bon\w+\s*=/iu);
     expect(options).not.toMatch(/https?:\/\//iu);
+  });
+
+  it('provides a generic accessible restore page without browsing metadata placeholders', async () => {
+    const suspended = await readSource('suspended/index.html');
+
+    expect(suspended).toContain('This tab is suspended');
+    expect(suspended).toContain('Restore tab');
+    expect(suspended).toMatch(/id="restore-tab"[^>]*type="button"/u);
+    expect(suspended).toMatch(/id="status"[^>]*aria-live="polite"/u);
+    expect(suspended).not.toMatch(/\b(url|title|hostname|favicon|domain)-(?:value|display)\b/iu);
+    expect(suspended).not.toMatch(/\bon\w+\s*=/iu);
+    expect(suspended).not.toMatch(/https?:\/\//iu);
   });
 
   it('ships original checked-in icons at every declared size', async () => {

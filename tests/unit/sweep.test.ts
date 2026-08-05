@@ -25,7 +25,12 @@ function tab(id: number, changes: Partial<TabSnapshot> = {}): TabSnapshot {
 }
 
 function storageWith(
-  settings = { schemaVersion: 1 as const, enabled: true, idleMinutes: 15 as const },
+  settings = {
+    schemaVersion: 2 as const,
+    enabled: true,
+    idleMinutes: 15 as const,
+    restoreBehavior: 'native' as const,
+  },
 ) {
   const data: Record<string, unknown> = { settings };
   const storage: LocalStorageArea & {
@@ -57,6 +62,14 @@ function dependencies(
     calls,
     storage,
     now: () => now,
+    async hasTabsPermission() {
+      calls.push('permission');
+      return true;
+    },
+    async park(value) {
+      calls.push(`park:${value.id}`);
+      return 'discarded';
+    },
     tabs: {
       async query() {
         calls.push('query');
@@ -72,11 +85,100 @@ function dependencies(
         calls.push(`discard:${id}`);
         return tab(id);
       },
+      async update(id, update) {
+        calls.push(`update:${id}`);
+        return tab(id, update.url === undefined ? {} : { url: update.url });
+      },
     },
   };
 }
 
 describe('runSweep', () => {
+  it('uses parking instead of native discard in click mode', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 1 });
+
+    expect(deps.calls).toEqual(['permission', 'query', 'get:1', 'permission', 'park:1']);
+    expect(deps.calls).not.toContain('discard:1');
+  });
+
+  it('does not silently fall back when tabs permission is absent', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+    deps.hasTabsPermission = async () => {
+      deps.calls.push('permission');
+      return false;
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 0 });
+    expect(deps.calls).toEqual(['permission']);
+  });
+
+  it('fails closed when click parking rejects unexpectedly', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+    deps.park = async () => Promise.reject(new Error('tab closed'));
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({
+      discardedCount: 0,
+      failedCount: 1,
+    });
+    expect(deps.calls).not.toContain('discard:1');
+  });
+
+  it('rechecks optional permission immediately before parking', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/' })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+    let permissionChecks = 0;
+    deps.hasTabsPermission = async () => {
+      deps.calls.push('permission');
+      permissionChecks += 1;
+      return permissionChecks === 1;
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({
+      discardedCount: 0,
+      skippedCount: 1,
+    });
+    expect(deps.calls).toEqual(['permission', 'query', 'get:1', 'permission']);
+  });
+
+  it('can convert an already-discarded http tab only in click mode', async () => {
+    const deps = dependencies([tab(1, { url: 'https://example.test/', discarded: true })]);
+    deps.storage.data.settings = {
+      schemaVersion: 2,
+      enabled: true,
+      idleMinutes: 15,
+      restoreBehavior: 'click',
+    };
+
+    await expect(runSweep('manual', deps)).resolves.toMatchObject({ discardedCount: 1 });
+    expect(deps.calls).toContain('park:1');
+    expect(deps.calls).not.toContain('discard:1');
+  });
+
   it('does not query tabs for a disabled automatic sweep', async () => {
     const deps = dependencies([]);
     deps.storage.data.settings = { schemaVersion: 1, enabled: false, idleMinutes: 15 };
@@ -167,6 +269,28 @@ describe('runSweep', () => {
     expect(deps.calls.some((call) => call.startsWith('discard:'))).toBe(false);
   });
 
+  it('uses the latest timeout when it changes while the final tab refresh is pending', async () => {
+    const deps = dependencies([tab(1)]);
+    let releaseRefresh!: () => void;
+    const refreshStarted = new Promise<void>((resolve) => {
+      deps.tabs.get = async (id) => {
+        resolve();
+        await new Promise<void>((release) => {
+          releaseRefresh = release;
+        });
+        return tab(id);
+      };
+    });
+
+    const sweep = runSweep('manual', deps);
+    await refreshStarted;
+    deps.storage.data.settings = { schemaVersion: 1, enabled: true, idleMinutes: 120 };
+    releaseRefresh();
+
+    await expect(sweep).resolves.toMatchObject({ discardedCount: 0, skippedCount: 1 });
+    expect(deps.calls).toEqual(['query']);
+  });
+
   it('records API rejection as failure and writes only the aggregate summary', async () => {
     const deps = dependencies([tab(1), tab(2)]);
     deps.tabs.get = async (id) => {
@@ -216,7 +340,7 @@ describe('runSweep', () => {
     await expect(
       discardIfStillEligible(
         { ...tab(1), id: undefined },
-        { schemaVersion: 1, enabled: true, idleMinutes: 15 },
+        { schemaVersion: 2, enabled: true, idleMinutes: 15, restoreBehavior: 'native' },
         deps,
       ),
     ).resolves.toBe('skipped');

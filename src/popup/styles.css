@@ -17,11 +17,19 @@ body {
   padding: 20px;
 }
 .brand,
-.state-card {
+.state-card,
+.protection-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.protection-card p:last-child {
+  max-width: 190px;
+  margin: 4px 0 0;
+  color: #364152;
+  font-size: 12px;
+  line-height: 1.4;
 }
 .brand h1 {
   margin: 0;
@@ -123,6 +131,7 @@ a:focus-visible {
   }
   .description,
   .reload-note,
+  .protection-card p:last-child,
   .summary-card p:last-child {
     color: #cbd5e1;
   }

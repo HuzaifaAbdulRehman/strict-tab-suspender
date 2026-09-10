@@ -37,6 +37,6 @@
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.0.0",
     "unzipper": "^0.12.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
